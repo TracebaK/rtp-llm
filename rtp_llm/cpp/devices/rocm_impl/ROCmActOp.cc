@@ -1,11 +1,10 @@
 #include "rtp_llm/cpp/devices/rocm_impl/ROCmDevice.h"
 #include "rtp_llm/cpp/kernels/activation_kernels.h"
-#include "rtp_llm/cpp/kernels/activation_kernels.h"
 #include "rtp_llm/cpp/core/Dispatch.h"
 #include "rtp_llm/cpp/core/torch_utils/BufferTorchUtils.h"
 
 // aiter kernels
-#include "activation.h"
+// #include "activation.h"
 // #include "aiter_meta/csrc/include/activation.h"
 
 using namespace std;
@@ -74,8 +73,9 @@ BufferPtr ROCmDevice::activation(const ActivationParams& params) {
     auto gate      = params.gate ? params.gate.value().get().data() : nullptr;
     auto gate_bias = params.gate_bias ? params.gate_bias.value().get().data() : nullptr;
     auto act_scale = params.act_scale ? params.act_scale.value().get().data() : nullptr;
-
-    if (params.fuse_gate_up) {
+    
+    if (false) {
+    // if (params.fuse_gate_up) {
         torch::Tensor gate_up_tensor = Buffer2torchTensor(*params.states, false);
         torch::Tensor output_tensor  = Buffer2torchTensor(*params.output_buffer, false);
         if (params.atype == ActivationType::Swiglu || params.atype == ActivationType::Silu) {

@@ -1,7 +1,7 @@
 #include "rtp_llm/cpp/devices/OpData.h"
 #include "rtp_llm/cpp/devices/DeviceBase.h"
 // #include "aiter_meta/csrc/include/attention.h"
-#include "attention.h"
+// #include "attention.h"
 
 namespace rtp_llm {
 void runAiterPA(const AttentionModuleParams& params,

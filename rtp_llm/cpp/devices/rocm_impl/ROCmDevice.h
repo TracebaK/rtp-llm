@@ -16,12 +16,12 @@
 #include "rtp_llm/cpp/devices/DeviceBase.h"
 #include "rtp_llm/cpp/rocm/hip_host_utils.h"
 #include "rtp_llm/cpp/rocm/hipblasMMWrapper.h"
-#include "rtp_llm/cpp/rocm/rocmFmhaWrapper.h"
+// #include "rtp_llm/cpp/rocm/rocmFmhaWrapper.h"
 #include "rtp_llm/cpp/rocm/quantizePreprocessors.h"
-#include "rtp_llm/cpp/rocm/rocmMoeWrapper.h"
-#include "rtp_llm/cpp/rocm/rocmCKGemmWrapper.h"
+// #include "rtp_llm/cpp/rocm/rocmMoeWrapper.h"
+// #include "rtp_llm/cpp/rocm/rocmCKGemmWrapper.h"
 #include "rtp_llm/cpp/kernels/kv_cache/kv_cache_utils.h"
-#include "rtp_llm/cpp/rocm/custom_ar/custom_ar_comm.h"
+// #include "rtp_llm/cpp/rocm/custom_ar/custom_ar_comm.h"
 
 #include "torch_hip_allocator.h"
 
@@ -287,7 +287,7 @@ private:
     std::unique_ptr<rocm::hipblasMMWrapper> hipblas_mm_wrapper_;
 
     // fmha
-    std::unique_ptr<rocmFmhaWrapper> fmha_runner_;
+    // std::unique_ptr<rocmFmhaWrapper> fmha_runner_;
     bool                             use_openSource_fmha = true;
 
     NcclParam tp_nccl_param_;
@@ -303,7 +303,7 @@ private:
                             NcclParam&         nccl_param);
     NcclParam getNcclParam(ParallelMode mode);
     // moe
-    std::unique_ptr<rocmMoeWrapper> moe_runner_;
+    // std::unique_ptr<rocmMoeWrapper> moe_runner_;
 
     // for custom allreduce use
     std::unique_ptr<CustomAllReduceComm> custom_allreduce_comm_ = nullptr;
@@ -318,7 +318,7 @@ private:
     // std::unique_ptr<CommBuffer> ffn_rs_comm_buffer_ = nullptr;
 
     // CK gemm
-    std::unique_ptr<rocmCKGemmWrapper> ck_gemm_runner_;
+    // std::unique_ptr<rocmCKGemmWrapper> ck_gemm_runner_;
 
 protected:
     bool use_multi_block_mode = false;

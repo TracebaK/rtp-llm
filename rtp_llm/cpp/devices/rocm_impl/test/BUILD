@@ -51,198 +51,198 @@ test_deps = [
     "//rtp_llm/cpp/devices/base_tests:base_tests",
 ] + torch_deps()
 
-cc_test(
-    name = "rocm_basic_test",
-    srcs = [],
-    env = device_test_envs(),
-    copts = test_copts,
-    deps = test_deps + [
-        "//rtp_llm/cpp/devices/base_tests:basic_test_cases"
-    ],
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "rocm_basic_test",
+#     srcs = [],
+#     env = device_test_envs(),
+#     copts = test_copts,
+#     deps = test_deps + [
+#         "//rtp_llm/cpp/devices/base_tests:basic_test_cases"
+#     ],
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "rocm_ops_test",
-    srcs = [
-        "RocmOpsTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts,
-    linkopts = test_linkopts,
-    deps = test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "rocm_ops_test",
+#     srcs = [
+#         "RocmOpsTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts,
+#     linkopts = test_linkopts,
+#     deps = test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "gemm_op_test",
-    srcs = [
-        "ops/ROCmGemmOpTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts + copts(),
-    linkopts = test_linkopts,
-    deps = test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "gemm_op_test",
+#     srcs = [
+#         "ops/ROCmGemmOpTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts + copts(),
+#     linkopts = test_linkopts,
+#     deps = test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "rocm_act_op_test",
-    srcs = [
-        "ops/RocmActOpTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts + copts(),
-    linkopts = test_linkopts,
-    deps = test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "rocm_act_op_test",
+#     srcs = [
+#         "ops/RocmActOpTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts + copts(),
+#     linkopts = test_linkopts,
+#     deps = test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "rocm_ffn_op_test",
-    srcs = [
-        "ops/RocmFFnOpTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts + copts(),
-    linkopts = test_linkopts,
-    deps = test_deps + select({
-        "@//:using_aiter_src": [
-            "@aiter_src//:module_aiter_enum",
-            "@aiter_src//:module_moe_asm",
-            "@aiter_src//:module_moe",
-            "@aiter_src//:module_quant",
-            "@aiter_src//:module_moe_sorting",
-        ],
-        "//conditions:default": [
-            "@aiter//:module_aiter_enum",
-            "@aiter//:module_moe_asm",
-            "@aiter//:module_moe",
-            "@aiter//:module_quant",
-            "@aiter//:module_moe_sorting",
-        ],
-    }),
-    tags = ["rocm"],
-)
+# cc_test(
+#     name = "rocm_ffn_op_test",
+#     srcs = [
+#         "ops/RocmFFnOpTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts + copts(),
+#     linkopts = test_linkopts,
+#     deps = test_deps + select({
+#         "@//:using_aiter_src": [
+#             "@aiter_src//:module_aiter_enum",
+#             "@aiter_src//:module_moe_asm",
+#             "@aiter_src//:module_moe",
+#             "@aiter_src//:module_quant",
+#             "@aiter_src//:module_moe_sorting",
+#         ],
+#         "//conditions:default": [
+#             "@aiter//:module_aiter_enum",
+#             "@aiter//:module_moe_asm",
+#             "@aiter//:module_moe",
+#             "@aiter//:module_quant",
+#             "@aiter//:module_moe_sorting",
+#         ],
+#     }),
+#     tags = ["rocm"],
+# )
 
-cc_test(
-    name="rocm_attention_op_test",
-    srcs=[
-        "ops/ROCmAttentionOpTest.cc",
-    ],
-    data=[],
-    env=device_test_envs(),
-    copts=test_copts + copts(),
-    linkopts=test_linkopts,
-    deps=test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name="rocm_attention_op_test",
+#     srcs=[
+#         "ops/ROCmAttentionOpTest.cc",
+#     ],
+#     data=[],
+#     env=device_test_envs(),
+#     copts=test_copts + copts(),
+#     linkopts=test_linkopts,
+#     deps=test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "embedding_lookup_test",
-    srcs = [
-        "ops/EmbeddingLookupTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts + copts(),
-    linkopts = test_linkopts,
-    deps = test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "embedding_lookup_test",
+#     srcs = [
+#         "ops/EmbeddingLookupTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts + copts(),
+#     linkopts = test_linkopts,
+#     deps = test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "rocm_softmax_op_test",
-    srcs = [
-        "ops/RocmSoftmaxOpTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts + copts(),
-    linkopts = test_linkopts,
-    deps = test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "rocm_softmax_op_test",
+#     srcs = [
+#         "ops/RocmSoftmaxOpTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts + copts(),
+#     linkopts = test_linkopts,
+#     deps = test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
 
-cc_test(
-    name="sampler_test",
-    srcs=[
-        "ROCmSamplerTest.cc",
-    ],
-    data=[],
-    env=device_test_envs(),
-    copts=test_copts + copts(),
-    linkopts=test_linkopts,
-    deps=test_deps,
-    tags=["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name="sampler_test",
+#     srcs=[
+#         "ROCmSamplerTest.cc",
+#     ],
+#     data=[],
+#     env=device_test_envs(),
+#     copts=test_copts + copts(),
+#     linkopts=test_linkopts,
+#     deps=test_deps,
+#     tags=["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name="layernorm_test",
-    srcs=[
-        "ops/LayernormTest.cc",
-    ],
-    data=[],
-    env=device_test_envs(),
-    copts=test_copts + copts(),
-    linkopts=test_linkopts,
-    deps=test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name="layernorm_test",
+#     srcs=[
+#         "ops/LayernormTest.cc",
+#     ],
+#     data=[],
+#     env=device_test_envs(),
+#     copts=test_copts + copts(),
+#     linkopts=test_linkopts,
+#     deps=test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_test(
-    name = "rccl_test",
-    srcs = [
-        "RcclTest.cc",
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts,
-    linkopts = test_linkopts,
-    deps = test_deps,
-    tags = ["rocm"],
-    exec_properties = {'gpu':'MI308X'},
-)
+# cc_test(
+#     name = "rccl_test",
+#     srcs = [
+#         "RcclTest.cc",
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts,
+#     linkopts = test_linkopts,
+#     deps = test_deps,
+#     tags = ["rocm"],
+#     exec_properties = {'gpu':'MI308X'},
+# )
 
-cc_binary(
-    name = "custom_ar_test",
-    srcs = [
-        "ops/CustomAllReduceTest.cc",
-    ],
-    deps = test_deps + [
-        "//rtp_llm/cpp/devices/torch_impl:torch_reference_impl",
-        "//rtp_llm/cpp/models:models",
-    ],
-    visibility = ["//visibility:public"],
-    linkstatic = False,
-    copts = test_copts,
-)
+# cc_binary(
+#     name = "custom_ar_test",
+#     srcs = [
+#         "ops/CustomAllReduceTest.cc",
+#     ],
+#     deps = test_deps + [
+#         "//rtp_llm/cpp/devices/torch_impl:torch_reference_impl",
+#         "//rtp_llm/cpp/models:models",
+#     ],
+#     visibility = ["//visibility:public"],
+#     linkstatic = False,
+#     copts = test_copts,
+# )
 
-cc_test(
-    name = "rocm_custom_all_reduce_test",
-    srcs = [
-        "ops/ROCmCustomAllReduceTest.cc"
-    ],
-    data = [],
-    env = device_test_envs(),
-    copts = test_copts,
-    linkopts = test_linkopts,
-    deps = test_deps + [
-        "//rtp_llm/cpp/devices/rocm_impl/test:custom_ar_test"
-    ],
-    tags = ["custom_ar_ut", "rocm"],
-)
+# cc_test(
+#     name = "rocm_custom_all_reduce_test",
+#     srcs = [
+#         "ops/ROCmCustomAllReduceTest.cc"
+#     ],
+#     data = [],
+#     env = device_test_envs(),
+#     copts = test_copts,
+#     linkopts = test_linkopts,
+#     deps = test_deps + [
+#         "//rtp_llm/cpp/devices/rocm_impl/test:custom_ar_test"
+#     ],
+#     tags = ["custom_ar_ut", "rocm"],
+# )

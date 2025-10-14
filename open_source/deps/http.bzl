@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("//3rdparty/composable_kernel:repo.bzl", "ck_repo")
+# load("//3rdparty/composable_kernel:repo.bzl", "ck_repo")
 
 def clean_dep(dep):
     return str(Label(dep))
@@ -49,35 +49,39 @@ def http_deps():
         build_file = clean_dep("//:BUILD.pytorch"),
     )
 
-    http_archive(
-        name = "composable_kernel_archive",
-        sha256 = "b31d8b9b1ebf6d1937198b257a2c36c18c394895bce6325630669f957d583094",
-        urls = [
-	        "https://search-ad.oss-cn-hangzhou-zmf-internal.aliyuncs.com/amd_pkgs/composable_kernel_archive.tar.gz",
-	    ],
-        build_file = clean_dep("//3rdparty/composable_kernel:ck.BUILD"),
-        strip_prefix = "composable_kernel_archive",
-    )
+    #http_archive(
+    #    name = "composable_kernel_archive",
+    #    sha256 = "b31d8b9b1ebf6d1937198b257a2c36c18c394895bce6325630669f957d583094",
+    #    urls = [
+    #    "file:///home/wheels/composable_kernel_archive.tar.gz"
+    #        #"https://search-ad.oss-cn-hangzhou-zmf-internal.aliyuncs.com/amd_pkgs/composable_kernel_archive.tar.gz",
+    #    ],
+    #    build_file = clean_dep("//3rdparty/composable_kernel:ck.BUILD"),
+    #    strip_prefix = "composable_kernel_archive",
+    #)
 
     http_archive(
         name = "torch_rocm",
-        sha256 = "8ccd35611d0f761e570f7904ecbbe27cfa4f48253abc48884b95e7bfaa936e7c",
+	sha256= "e49e12754fbf8104b2945b8e277e9118bffa32bfb447b9970f7b81330208b515",
+        # sha256 = "8ccd35611d0f761e570f7904ecbbe27cfa4f48253abc48884b95e7bfaa936e7c",
         urls = [
-            "https://repo.radeon.com/rocm/manylinux/rocm-rel-6.3/torch-2.4.0%2Brocm6.3.0-cp310-cp310-linux_x86_64.whl"
+	    "file:///home/wheels/torch-2.4.1+das.opt1.dtk25041-cp310-cp310-manylinux_2_28_x86_64.whl"
+	    # "https://repo.radeon.com/rocm/manylinux/rocm-rel-6.3/torch-2.4.0%2Brocm6.3.0-cp310-cp310-linux_x86_64.whl"
         ],
         type = "zip",
         build_file = clean_dep("//:BUILD.pytorch"),
     )
 
-    http_archive(
-        name = "aiter",
-        sha256 = "88178ba538a58fd82e2fbccfd9dcb3dbcc85eb5d75814ea5b4243b048beb5898",
-        urls = [
-	        "https://search-ad.oss-cn-hangzhou-zmf-internal.aliyuncs.com/amd_pkgs/aiter-0.1.0-py3-none-any.whl",
-	    ],
-        type = "zip",
-        build_file = clean_dep("//:BUILD.aiter"),
-    )
+    #http_archive(
+    #    name = "aiter",
+    #    sha256 = "88178ba538a58fd82e2fbccfd9dcb3dbcc85eb5d75814ea5b4243b048beb5898",
+    #    urls = [
+    #    "file:///home/wheels/aiter-0.1.0-py3-none-any.whl"
+    #     #   "https://search-ad.oss-cn-hangzhou-zmf-internal.aliyuncs.com/amd_pkgs/aiter-0.1.0-py3-none-any.whl",
+    #    ],
+    #    type = "zip",
+    #    build_file = clean_dep("//:BUILD.aiter"),
+    #)
 
     http_archive(
         name = "xfastertransformer_devel_icx",
@@ -132,4 +136,4 @@ def http_deps():
         sha256 = "d5c9ce8474f6bf2177c11c4dc36acf633b5d4763353cd70156b0a0b2d54b8316"
     )
 
-    ck_repo(name = "composable_kernel")
+ #   ck_repo(name = "composable_kernel")

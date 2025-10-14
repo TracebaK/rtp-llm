@@ -23,10 +23,10 @@ config_setting(
     values = {"define": "using_rocm=true"},
 )
 
-config_setting(
-    name = "using_aiter_src",
-    values = {"define": "using_aiter_src=true"},
-)
+# config_setting(
+#     name = "using_aiter_src",
+#     values = {"define": "using_aiter_src=true"},
+# )
 
 config_setting(
     name = "using_arm",

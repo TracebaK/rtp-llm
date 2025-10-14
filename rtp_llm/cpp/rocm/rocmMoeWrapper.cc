@@ -1,14 +1,14 @@
 #include "rocmMoeWrapper.h"
 #include "rtp_llm/cpp/utils/StringUtil.h"
 
-#include "ck/ck.hpp"
-#include "fused_moe.hpp"
-#include "ck_tile/host.hpp"
-#include "ck_tile/host/reference/reference_permute.hpp"
-#include "ck/tensor_operation/gpu/element/combined_element_wise_operation.hpp"
+// #include "ck/ck.hpp"
+// #include "fused_moe.hpp"
+// #include "ck_tile/host.hpp"
+// #include "ck_tile/host/reference/reference_permute.hpp"
+// #include "ck/tensor_operation/gpu/element/combined_element_wise_operation.hpp"
 
-#include "ck/utility/data_type.hpp"
-#include "ck/library/utility/device_memory.hpp"
+// #include "ck/utility/data_type.hpp"
+// #include "ck/library/utility/device_memory.hpp"
 
 namespace rtp_llm {
 

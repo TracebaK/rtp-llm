@@ -12,7 +12,7 @@
 #include "rtp_llm/cpp/utils/Logger.h"
 
 // aiter custom all reduce kernel
-#include "custom_all_reduce.h"
+// #include "custom_all_reduce.h"
 // #include "aiter_meta/csrc/include/custom_all_reduce.h"
 
 namespace rtp_llm {

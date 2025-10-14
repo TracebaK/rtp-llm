@@ -1,0 +1,29 @@
+git_override(
+    module_name = "cutlass_fa",
+    remote = "/home/git_deps/cutlass",
+    commit = "bbe579a9e3beb6ea6626d9227ec32d0dae119a49",
+)
+
+git_override(
+    module_name = "cutlass",
+    remote = "/home/git_deps/cutlass",
+    commit = "80243e0b8c644f281e2beb0c20fe78cf7b267061",
+)
+
+git_override(
+    module_name = "cutlass_h_moe",
+    remote = "/home/git_deps/cutlass",
+    commit = "19b4c5e065e7e5bbc8082dfc7dbd792bdac850fc",
+)
+
+git_override(
+    module_name = "cutlass3.6",
+    remote = "/home/git_deps/cutlass",
+    commit = "cc3c29a81a140f7b97045718fb88eb0664c37bd7",
+)
+
+git_override(
+    module_name = "havenask",
+    remote = "/home/git_deps/havenask",
+    commit = "3c973500afbd40933eb0a80cfdfb6592274377fb",
+)

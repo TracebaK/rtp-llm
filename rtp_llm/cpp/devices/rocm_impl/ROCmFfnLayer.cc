@@ -7,11 +7,11 @@
 #include "rtp_llm/cpp/kernels/moe_kernels.h"
 
 // aiter kernels
-#include "aiter_enum.h"
-#include "moe_op.h"
-#include "quant.h"
-#include "moe_sorting.h"
-#include "moe_ck.h"
+// #include "aiter_enum.h"
+// #include "moe_op.h"
+// #include "quant.h"
+// #include "moe_sorting.h"
+// #include "moe_ck.h"
 
 // #include "aiter_meta/csrc/include/aiter_enum.h"
 // #include "aiter_meta/csrc/include/moe_op.h"
@@ -24,6 +24,7 @@ using namespace std;
 namespace rtp_llm {
 
 MoeDispatchOutput ROCmDevice::epDispatch(const MoeDispatchParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     DevicePerfWrapper wrapper(this, "epDispatch");
     // if (init_params_.use_deepep_moe) {
     //     if (init_params_.use_deepep_low_latency) {
@@ -157,6 +158,7 @@ MoeDispatchOutput ROCmDevice::epDispatch(const MoeDispatchParams& params) {
 }
 
 MoeCombineOutput ROCmDevice::epCombine(const MoeCombineParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     DevicePerfWrapper wrapper(this, "epCombine");
     // if (init_params_.use_deepep_moe) {
     //     if (init_params_.use_deepep_low_latency) {
@@ -174,6 +176,7 @@ MoeCombineOutput ROCmDevice::epCombine(const MoeCombineParams& params) {
 }
 
 FfnLayerOutput ROCmDevice::gatherCombineOutput(const MoeCombineOutput& combine_outputs) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     auto&       all_output     = combine_outputs.all_output;
     auto        scatter_output = combine_outputs.scatter_output;
     const auto& params         = combine_outputs.params;
@@ -254,6 +257,7 @@ FfnLayerOutput ROCmDevice::gatherCombineOutput(const MoeCombineOutput& combine_o
 }
 
 MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     const MoeConfigs& moe_conf = params.configs.moe_configs.value();
 
     const Buffer& hidden     = params.input;
@@ -326,6 +330,7 @@ MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
 }
 
 FfnLayerOutput ROCmDevice::moeFfn(const FfnLayerParams& params, const MoeGateSelectOutput& gate_outputs) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     const MoeConfigs& moe_conf = params.configs.moe_configs.value();
 
     const Buffer& hidden = params.input;

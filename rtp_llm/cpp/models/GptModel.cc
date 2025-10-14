@@ -722,11 +722,12 @@ vector<GptLayerInputs> GptModel::forwardPrefillMicroBatchedLayers(vector<GptLaye
     std::vector<LastLayerDeferedParams> last_layer_defered_params(micro_batch_layer_inputs.size());
 
     for (int32_t i = 0; i < layer_num_; ++i) {
-        const auto& layer     = weights_.layers[i];
-        bool        moe_layer = weights_.layers[i].ffn_weights.moe_gate_weight != nullptr;
+        // const auto& layer     = weights_.layers[i];
+        // bool        moe_layer = weights_.layers[i].ffn_weights.moe_gate_weight != nullptr;
 
         // dense layer does not need micro batching.
-        if (!moe_layer) {
+        if (true) {
+            // if (!moe_layer) {
             for (auto& layer_input : micro_batch_layer_inputs) {
                 auto layer_outputs = forwardGptLayer(layer_input, i, nullptr);
                 layer_input.hidden = move(layer_outputs.hidden);
@@ -738,179 +739,186 @@ vector<GptLayerInputs> GptModel::forwardPrefillMicroBatchedLayers(vector<GptLaye
             continue;
         }
 
-        std::vector<EpFfnInputs> ep_inputs;
-        for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
-            if (micro_batch_idx) {
-                device_->holdBufferRecycle();
-            }
+        //     std::vector<EpFfnInputs> ep_inputs;
+        //     for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
+        //         if (micro_batch_idx) {
+        //             device_->holdBufferRecycle();
+        //         }
 
-            auto& layer_input         = micro_batch_layer_inputs[micro_batch_idx];
-            bool  capture_last_hidden = dynamic_cast<Eagle3Model*>(this) == nullptr && device_props_.is_eagle3
-                                       && device_props_.eagle3_selected_layer.count(i - 1) > 0;
-            auto batch_ep_input = forwardAttentionAndMoeGate(
-                layer_input, last_layer_defered_params[micro_batch_idx], i, micro_batch_idx, capture_last_hidden);
-            if (capture_last_hidden) {
-                eagle3_selected_hidden.push_back(
-                    device_->clone({*batch_ep_input.last_layer_hidden, AllocationType::DEVICE}));
-            }
+        //         auto& layer_input         = micro_batch_layer_inputs[micro_batch_idx];
+        //         bool  capture_last_hidden = dynamic_cast<Eagle3Model*>(this) == nullptr && device_props_.is_eagle3
+        //                                    && device_props_.eagle3_selected_layer.count(i - 1) > 0;
+        //         auto batch_ep_input = forwardAttentionAndMoeGate(
+        //             layer_input, last_layer_defered_params[micro_batch_idx], i, micro_batch_idx,
+        //             capture_last_hidden);
+        //         if (capture_last_hidden) {
+        //             eagle3_selected_hidden.push_back(
+        //                 device_->clone({*batch_ep_input.last_layer_hidden, AllocationType::DEVICE}));
+        //         }
 
-            if (micro_batch_idx == 0) {
-                // to overlap shared with combine
-                auto shared_expert_output = device_->moeSharedExpert(batch_ep_input.moe_ffn_params).hidden_states;
-                batch_ep_input.shared_expert_output = shared_expert_output;
-            }
+        //         if (micro_batch_idx == 0) {
+        //             // to overlap shared with combine
+        //             auto shared_expert_output =
+        //             device_->moeSharedExpert(batch_ep_input.moe_ffn_params).hidden_states;
+        //             batch_ep_input.shared_expert_output = shared_expert_output;
+        //         }
 
-            batch_ep_input.compute_event = device_->createTorchEvent();
-            ep_inputs.push_back(move(batch_ep_input));
-        }
+        //         batch_ep_input.compute_event = device_->createTorchEvent();
+        //         ep_inputs.push_back(move(batch_ep_input));
+        //     }
 
-        std::vector<MoeDispatchOutput> dispatch_outputs;
-        std::vector<MoeOutputs>        moe_ffn_outputs;
-        for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
-            auto&       ep_input         = ep_inputs[micro_batch_idx];
-            const auto& ffn_layer_params = ep_input.moe_ffn_params;
-            const auto& gate_output      = ep_input.gate_output;
+        //     std::vector<MoeDispatchOutput> dispatch_outputs;
+        //     std::vector<MoeOutputs>        moe_ffn_outputs;
+        //     for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
+        //         auto&       ep_input         = ep_inputs[micro_batch_idx];
+        //         const auto& ffn_layer_params = ep_input.moe_ffn_params;
+        //         const auto& gate_output      = ep_input.gate_output;
 
-            auto dispatched_output = device_->epDispatch({
-                ep_input.quantized_hidden ? *(ep_input.quantized_hidden) : *(ep_input.hidden),
-                *gate_output.expert_ids,
-                *gate_output.expert_scales,
-                description_.ffn_conf.moe_configs.value(),
-                device_props_.enable_comm_overlap,
-                description_.act_qscheme,
-                ffn_layer_params.expert_stats,
-                move(ep_input.compute_event),
-            });
+        //         auto dispatched_output = device_->epDispatch({
+        //             ep_input.quantized_hidden ? *(ep_input.quantized_hidden) : *(ep_input.hidden),
+        //             *gate_output.expert_ids,
+        //             *gate_output.expert_scales,
+        //             description_.ffn_conf.moe_configs.value(),
+        //             device_props_.enable_comm_overlap,
+        //             description_.act_qscheme,
+        //             ffn_layer_params.expert_stats,
+        //             move(ep_input.compute_event),
+        //         });
 
-            device_->releaseBufferRecycleHold();
-            device_->holdBufferRecycle();
+        //         device_->releaseBufferRecycleHold();
+        //         device_->holdBufferRecycle();
 
-            printBufferData(*dispatched_output.hidden, "layer_" + to_string(i) + "_dispatch_output");
-            dispatch_outputs.push_back(dispatched_output);
+        //         printBufferData(*dispatched_output.hidden, "layer_" + to_string(i) + "_dispatch_output");
+        //         dispatch_outputs.push_back(dispatched_output);
 
-            DevicePerfWrapper wrapper(device_,
-                                      "mb_moe_layer_" + std::to_string(i) + "_idx_" + std::to_string(micro_batch_idx));
-            // auto& layer_input = micro_batch_layer_inputs[micro_batch_idx];
-            auto&       batch_ep_input = ep_inputs[micro_batch_idx];
-            const auto& ffn_params     = batch_ep_input.moe_ffn_params;
+        //         DevicePerfWrapper wrapper(device_,
+        //                                   "mb_moe_layer_" + std::to_string(i) + "_idx_" +
+        //                                   std::to_string(micro_batch_idx));
+        //         // auto& layer_input = micro_batch_layer_inputs[micro_batch_idx];
+        //         auto&       batch_ep_input = ep_inputs[micro_batch_idx];
+        //         const auto& ffn_params     = batch_ep_input.moe_ffn_params;
 
-            auto hidden_states = dispatched_output.hidden;
+        //         auto hidden_states = dispatched_output.hidden;
 
-            auto moe_ffn_params = FfnLayerParams(
-                {*hidden_states, ffn_params.configs, ffn_params.weights, ffn_params.residual, ffn_params.qscheme});
-            prepareExpertStats(i, moe_ffn_params);
+        //         auto moe_ffn_params = FfnLayerParams(
+        //             {*hidden_states, ffn_params.configs, ffn_params.weights, ffn_params.residual,
+        //             ffn_params.qscheme});
+        //         prepareExpertStats(i, moe_ffn_params);
 
-            if (dispatched_output.comm_barrier_hook) {
-                dispatched_output.comm_barrier_hook->hook_sync();
-                dispatched_output.comm_barrier_hook = nullptr;
-            }
+        //         if (dispatched_output.comm_barrier_hook) {
+        //             dispatched_output.comm_barrier_hook->hook_sync();
+        //             dispatched_output.comm_barrier_hook = nullptr;
+        //         }
 
-            hidden_states = device_
-                                ->moeFfn(moe_ffn_params,
-                                         {dispatched_output.expert_ids,
-                                          dispatched_output.expert_scales,
-                                          nullptr,
-                                          dispatched_output.deep_ep_ll_output})
-                                .hidden_states;
-            device_->checkError();
+        //         hidden_states = device_
+        //                             ->moeFfn(moe_ffn_params,
+        //                                      {dispatched_output.expert_ids,
+        //                                       dispatched_output.expert_scales,
+        //                                       nullptr,
+        //                                       dispatched_output.deep_ep_ll_output})
+        //                             .hidden_states;
+        //         device_->checkError();
 
-            // shared experts to overlap combine
-            if (micro_batch_idx) {
-                auto shared_expert_output =
-                    device_->moeSharedExpert(ep_inputs[micro_batch_idx].moe_ffn_params).hidden_states;
-                ep_inputs[micro_batch_idx].shared_expert_output = shared_expert_output;
-            }
-            device_->checkError();
+        //         // shared experts to overlap combine
+        //         if (micro_batch_idx) {
+        //             auto shared_expert_output =
+        //                 device_->moeSharedExpert(ep_inputs[micro_batch_idx].moe_ffn_params).hidden_states;
+        //             ep_inputs[micro_batch_idx].shared_expert_output = shared_expert_output;
+        //         }
+        //         device_->checkError();
 
-            auto compute_event = device_->createTorchEvent();
-            moe_ffn_outputs.push_back({move(hidden_states), move(compute_event)});
-            printBufferData(*hidden_states, "layer_" + to_string(i) + "_combine_input");
-        }
+        //         auto compute_event = device_->createTorchEvent();
+        //         moe_ffn_outputs.push_back({move(hidden_states), move(compute_event)});
+        //         printBufferData(*hidden_states, "layer_" + to_string(i) + "_combine_input");
+        //     }
 
-        std::vector<EpFfnOutputs> ep_outputs;
-        for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
-            auto&       batch_ep_input    = ep_inputs[micro_batch_idx];
-            const auto& ffn_params        = batch_ep_input.moe_ffn_params;
-            auto&       dispatched_output = dispatch_outputs[micro_batch_idx];
-            const auto& moe_conf          = ffn_params.configs.moe_configs.value();
+        //     std::vector<EpFfnOutputs> ep_outputs;
+        //     for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
+        //         auto&       batch_ep_input    = ep_inputs[micro_batch_idx];
+        //         const auto& ffn_params        = batch_ep_input.moe_ffn_params;
+        //         auto&       dispatched_output = dispatch_outputs[micro_batch_idx];
+        //         const auto& moe_conf          = ffn_params.configs.moe_configs.value();
 
-            // const auto overlap = (!micro_batch_idx) ? device_props_.enable_comm_overlap : false;
+        //         // const auto overlap = (!micro_batch_idx) ? device_props_.enable_comm_overlap : false;
 
-            auto combine_out = device_->epCombine({
-                moe_ffn_outputs[micro_batch_idx].hidden,
-                dispatched_output.indices,
-                ffn_params.output,
-                dispatched_output.input_split_sizes,
-                dispatched_output.output_split_sizes,
-                moe_conf,
-                ffn_params.input.shape()[0],
-                // overlap, // device_props_.enable_comm_overlap,
-                device_props_.enable_comm_overlap,
-                dispatched_output.deep_ep_output,
-                dispatched_output.deep_ep_ll_output,
-                std::make_shared<MoeGateSelectOutput>(batch_ep_input.gate_output),
-                dispatched_output.expert_ids,
-                dispatched_output.expert_scales,
-                move(moe_ffn_outputs[micro_batch_idx].compute_event),
-            });
-            device_->checkError();
-            printBufferData(*combine_out.all_output, "layer_" + to_string(i) + "_combine_output");
+        //         auto combine_out = device_->epCombine({
+        //             moe_ffn_outputs[micro_batch_idx].hidden,
+        //             dispatched_output.indices,
+        //             ffn_params.output,
+        //             dispatched_output.input_split_sizes,
+        //             dispatched_output.output_split_sizes,
+        //             moe_conf,
+        //             ffn_params.input.shape()[0],
+        //             // overlap, // device_props_.enable_comm_overlap,
+        //             device_props_.enable_comm_overlap,
+        //             dispatched_output.deep_ep_output,
+        //             dispatched_output.deep_ep_ll_output,
+        //             std::make_shared<MoeGateSelectOutput>(batch_ep_input.gate_output),
+        //             dispatched_output.expert_ids,
+        //             dispatched_output.expert_scales,
+        //             move(moe_ffn_outputs[micro_batch_idx].compute_event),
+        //         });
+        //         device_->checkError();
+        //         printBufferData(*combine_out.all_output, "layer_" + to_string(i) + "_combine_output");
 
-            auto hook   = nullptr;
-            auto output = combine_out.all_output;
+        //         auto hook   = nullptr;
+        //         auto output = combine_out.all_output;
 
-            ep_outputs.push_back(EpFfnOutputs({output, move(combine_out), move(hook)}));
+        //         ep_outputs.push_back(EpFfnOutputs({output, move(combine_out), move(hook)}));
 
-            if (micro_batch_idx == 0) {
-                device_->releaseBufferRecycleHold();
-            }
-        }
+        //         if (micro_batch_idx == 0) {
+        //             device_->releaseBufferRecycleHold();
+        //         }
+        //     }
 
-        for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
-            // last layer: add residual and shared expert output
-            auto& layer_input     = micro_batch_layer_inputs[micro_batch_idx];
-            auto& batch_ep_input  = ep_inputs[micro_batch_idx];
-            auto& batch_ep_output = ep_outputs[micro_batch_idx];
+        //     for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
+        //         // last layer: add residual and shared expert output
+        //         auto& layer_input     = micro_batch_layer_inputs[micro_batch_idx];
+        //         auto& batch_ep_input  = ep_inputs[micro_batch_idx];
+        //         auto& batch_ep_output = ep_outputs[micro_batch_idx];
 
-            if (i == layer_num_ - 1) {
-                if (batch_ep_output.combine_output.comm_barrier_hook) {
-                    batch_ep_output.combine_output.comm_barrier_hook->hook_sync();
-                }
-                auto output = batch_ep_output.hidden;
-                output      = device_->gatherCombineOutput(batch_ep_output.combine_output).hidden_states;
+        //         if (i == layer_num_ - 1) {
+        //             if (batch_ep_output.combine_output.comm_barrier_hook) {
+        //                 batch_ep_output.combine_output.comm_barrier_hook->hook_sync();
+        //             }
+        //             auto output = batch_ep_output.hidden;
+        //             output      = device_->gatherCombineOutput(batch_ep_output.combine_output).hidden_states;
 
-                printBufferData(*output, "layer_" + to_string(i) + "_ffn_output");
+        //             printBufferData(*output, "layer_" + to_string(i) + "_ffn_output");
 
-                auto ffn_layernorm_output = device_->layernorm({output,
-                                                                nullptr,
-                                                                rtp_llm::mayGetRef(layer.post_ffn_layernorm),
-                                                                rtp_llm::mayGetRef(batch_ep_input.residual),
-                                                                rtp_llm::mayGetRef(batch_ep_input.shared_expert_output),
-                                                                nullopt,
-                                                                1.0f,
-                                                                description_.layernorm_eps,
-                                                                true,
-                                                                description_.post_layernorm,
-                                                                description_.norm_type,
-                                                                QScheme::NoQuantize});
-                device_->checkError();
-                layer_input.hidden = move(ffn_layernorm_output.output);
-                printBufferData(*layer_input.hidden, "layer_" + to_string(i) + "_final_hidden");
-            } else {
-                // not last layer: defer add residual and bias to next layer
-                last_layer_defered_params[micro_batch_idx].residual             = batch_ep_input.residual;
-                last_layer_defered_params[micro_batch_idx].shared_expert_output = batch_ep_input.shared_expert_output;
-                last_layer_defered_params[micro_batch_idx].post_ffn_layernorm_weights = layer.post_ffn_layernorm;
-                if (last_layer_defered_params[micro_batch_idx].combine_output) {
-                    last_layer_defered_params[micro_batch_idx].combine_output.value().params.expert_ids    = nullptr;
-                    last_layer_defered_params[micro_batch_idx].combine_output.value().params.expert_scales = nullptr;
-                    last_layer_defered_params[micro_batch_idx].combine_output                              = nullopt;
-                }
-                last_layer_defered_params[micro_batch_idx].combine_output    = move(batch_ep_output.combine_output);
-                last_layer_defered_params[micro_batch_idx].comm_barrier_hook = move(batch_ep_output.comm_barrier_hook);
-                layer_input.hidden                                           = move(batch_ep_output.hidden);
-            }
-        }
+        //             auto ffn_layernorm_output = device_->layernorm({output,
+        //                                                             nullptr,
+        //                                                             rtp_llm::mayGetRef(layer.post_ffn_layernorm),
+        //                                                             rtp_llm::mayGetRef(batch_ep_input.residual),
+        //                                                             rtp_llm::mayGetRef(batch_ep_input.shared_expert_output),
+        //                                                             nullopt,
+        //                                                             1.0f,
+        //                                                             description_.layernorm_eps,
+        //                                                             true,
+        //                                                             description_.post_layernorm,
+        //                                                             description_.norm_type,
+        //                                                             QScheme::NoQuantize});
+        //             device_->checkError();
+        //             layer_input.hidden = move(ffn_layernorm_output.output);
+        //             printBufferData(*layer_input.hidden, "layer_" + to_string(i) + "_final_hidden");
+        //         } else {
+        //             // not last layer: defer add residual and bias to next layer
+        //             last_layer_defered_params[micro_batch_idx].residual             = batch_ep_input.residual;
+        //             last_layer_defered_params[micro_batch_idx].shared_expert_output =
+        //             batch_ep_input.shared_expert_output;
+        //             last_layer_defered_params[micro_batch_idx].post_ffn_layernorm_weights = layer.post_ffn_layernorm;
+        //             if (last_layer_defered_params[micro_batch_idx].combine_output) {
+        //                 last_layer_defered_params[micro_batch_idx].combine_output.value().params.expert_ids    =
+        //                 nullptr;
+        //                 last_layer_defered_params[micro_batch_idx].combine_output.value().params.expert_scales =
+        //                 nullptr; last_layer_defered_params[micro_batch_idx].combine_output = nullopt;
+        //             }
+        //             last_layer_defered_params[micro_batch_idx].combine_output    =
+        //             move(batch_ep_output.combine_output);
+        //             last_layer_defered_params[micro_batch_idx].comm_barrier_hook =
+        //             move(batch_ep_output.comm_barrier_hook); layer_input.hidden = move(batch_ep_output.hidden);
+        //         }
+        //     }
     }
     return micro_batch_layer_inputs;
 }
@@ -924,7 +932,8 @@ vector<GptLayerInputs> GptModel::forwardDecodeMicroBatchedLayers(vector<GptLayer
         bool        moe_layer = layer.ffn_weights.moe_gate_weight != nullptr;
 
         // dense layer does not need micro batching.
-        if (!moe_layer) {
+        if (true) {
+            // if (!moe_layer) {
             for (auto& layer_input : micro_batch_layer_inputs) {
                 auto layer_outputs = forwardGptLayer(layer_input, i, nullptr);
                 device_->checkError();
@@ -937,62 +946,64 @@ vector<GptLayerInputs> GptModel::forwardDecodeMicroBatchedLayers(vector<GptLayer
             continue;
         }
 
-        for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
-            auto& layer_input               = micro_batch_layer_inputs[micro_batch_idx];
-            auto& last_layer_defered_params = last_layer_defered_params_vec[micro_batch_idx];
+        // for (size_t micro_batch_idx = 0; micro_batch_idx < micro_batch_layer_inputs.size(); ++micro_batch_idx) {
+        //     auto& layer_input               = micro_batch_layer_inputs[micro_batch_idx];
+        //     auto& last_layer_defered_params = last_layer_defered_params_vec[micro_batch_idx];
 
-            auto last_layer_moe_ret = device_->stealMoEInsertionRet();
-            // qwen moe has no shared expert, so we can not use it to check if the moe insertion is valid.
-            if (layer.ffn_weights.shared_expert) {
-                RUNTIME_ASSERT_OP_ARG(bool(last_layer_defered_params.shared_expert_output) == bool(last_layer_moe_ret),
-                                      "moe insegrtion return should only be null if no previous layer.");
-            }
-            if (last_layer_defered_params.combine_output) {
-                last_layer_defered_params.combine_output = nullopt;
-            }
-            last_layer_defered_params.combine_output =
-                last_layer_moe_ret ? std::optional<rtp_llm::MoeCombineOutput>(last_layer_moe_ret->combine_output) :
-                                     nullopt;
+        //     auto last_layer_moe_ret = device_->stealMoEInsertionRet();
+        //     // qwen moe has no shared expert, so we can not use it to check if the moe insertion is valid.
+        //     if (layer.ffn_weights.shared_expert) {
+        //         RUNTIME_ASSERT_OP_ARG(bool(last_layer_defered_params.shared_expert_output) ==
+        //         bool(last_layer_moe_ret),
+        //                               "moe insegrtion return should only be null if no previous layer.");
+        //     }
+        //     if (last_layer_defered_params.combine_output) {
+        //         last_layer_defered_params.combine_output = nullopt;
+        //     }
+        //     last_layer_defered_params.combine_output =
+        //         last_layer_moe_ret ? std::optional<rtp_llm::MoeCombineOutput>(last_layer_moe_ret->combine_output) :
+        //                              nullopt;
 
-            bool capture_last_hidden = dynamic_cast<Eagle3Model*>(this) == nullptr && device_props_.is_eagle3
-                                       && device_props_.eagle3_selected_layer.count(i - 1) > 0;
-            auto ep_input = forwardAttentionAndMoeGate(
-                layer_input, last_layer_defered_params, i, micro_batch_idx, capture_last_hidden);
-            if (capture_last_hidden) {
-                eagle3_selected_hidden.push_back(device_->clone({*ep_input.last_layer_hidden, AllocationType::DEVICE}));
-            }
+        //     bool capture_last_hidden = dynamic_cast<Eagle3Model*>(this) == nullptr && device_props_.is_eagle3
+        //                                && device_props_.eagle3_selected_layer.count(i - 1) > 0;
+        //     auto ep_input = forwardAttentionAndMoeGate(
+        //         layer_input, last_layer_defered_params, i, micro_batch_idx, capture_last_hidden);
+        //     if (capture_last_hidden) {
+        //         eagle3_selected_hidden.push_back(device_->clone({*ep_input.last_layer_hidden,
+        //         AllocationType::DEVICE}));
+        //     }
 
-            // call combine hook sync
-            auto& previous_moe_ret = device_->getMoEInsertionRet();
-            if (previous_moe_ret && previous_moe_ret->combine_output.comm_barrier_hook) {
-                previous_moe_ret->combine_output.comm_barrier_hook->hook_sync();
-                previous_moe_ret->combine_output.comm_barrier_hook = nullptr;
-            }
+        //     // call combine hook sync
+        //     auto& previous_moe_ret = device_->getMoEInsertionRet();
+        //     if (previous_moe_ret && previous_moe_ret->combine_output.comm_barrier_hook) {
+        //         previous_moe_ret->combine_output.comm_barrier_hook->hook_sync();
+        //         previous_moe_ret->combine_output.comm_barrier_hook = nullptr;
+        //     }
 
-            MoeDispatchOutput dispatched_output = device_->epDispatch({
-                ep_input.moe_ffn_params.input,
-                *ep_input.gate_output.expert_ids,
-                *ep_input.gate_output.expert_scales,
-                description_.ffn_conf.moe_configs.value(),
-                device_props_.enable_comm_overlap,
-                description_.act_qscheme,
-                ep_input.moe_ffn_params.expert_stats,
-                std::move(ep_input.compute_event),
-            });
+        //     MoeDispatchOutput dispatched_output = device_->epDispatch({
+        //         ep_input.moe_ffn_params.input,
+        //         *ep_input.gate_output.expert_ids,
+        //         *ep_input.gate_output.expert_scales,
+        //         description_.ffn_conf.moe_configs.value(),
+        //         device_props_.enable_comm_overlap,
+        //         description_.act_qscheme,
+        //         ep_input.moe_ffn_params.expert_stats,
+        //         std::move(ep_input.compute_event),
+        //     });
 
-            // set moe insertion params
-            device_->setMoEInsertion(MoEInsertionParams(dispatched_output,
-                                                        ep_input.moe_ffn_params,
-                                                        std::make_shared<MoeGateSelectOutput>(ep_input.gate_output),
-                                                        ep_input.hidden->shape()[0]));
-            last_layer_defered_params.residual                   = ep_input.residual;
-            last_layer_defered_params.post_ffn_layernorm_weights = layer.post_ffn_layernorm;
+        //     // set moe insertion params
+        //     device_->setMoEInsertion(MoEInsertionParams(dispatched_output,
+        //                                                 ep_input.moe_ffn_params,
+        //                                                 std::make_shared<MoeGateSelectOutput>(ep_input.gate_output),
+        //                                                 ep_input.hidden->shape()[0]));
+        //     last_layer_defered_params.residual                   = ep_input.residual;
+        //     last_layer_defered_params.post_ffn_layernorm_weights = layer.post_ffn_layernorm;
 
-            // call shared
-            auto shared_expert_output = device_->moeSharedExpert(ep_input.moe_ffn_params).hidden_states;
-            device_->checkError();
-            last_layer_defered_params.shared_expert_output = shared_expert_output;
-        }
+        //     // call shared
+        //     auto shared_expert_output = device_->moeSharedExpert(ep_input.moe_ffn_params).hidden_states;
+        //     device_->checkError();
+        //     last_layer_defered_params.shared_expert_output = shared_expert_output;
+        // }
     }
 
     // deal with last layer

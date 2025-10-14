@@ -1,5 +1,5 @@
-#include "layernorm2d_fwd.hpp"
-#include "rmsnorm2d_fwd.hpp"
+// #include "layernorm2d_fwd.hpp"
+// #include "rmsnorm2d_fwd.hpp"
 // #include "aiter_meta/3rdparty/composable_kernel/example/ck_tile/10_rmsnorm2d/rmsnorm2d_fwd.hpp"
 // #include "aiter_meta/3rdparty/composable_kernel/example/ck_tile/02_layernorm2d/layernorm2d_fwd.hpp"
 #include "rtp_llm/cpp/devices/rocm_impl/ROCmDevice.h"
@@ -198,31 +198,32 @@ LayernormOutput ROCmDevice::layernorm(const LayernormParams& params) {
 
     if (params.residual1.has_value() || params.bias.has_value()) {
         if (params.norm_type == NormType::layernorm) {
-            if ((!params.bias.has_value()) && (data_type == DataType::TYPE_FP16 && m > 32 && n <= 768)) {
-                layernorm2d_fwd_traits traits{"fp16", "fp16", "fp32", "fp32", 0, 1, 0};
-                layernorm2d_fwd_args   args{input->data(),
-                                          params.residual1.value().get().data(),
-                                          nullptr,
-                                          nullptr,
-                                          gamma,
-                                          beta,
+            if (false) {
+            // if ((!params.bias.has_value()) && (data_type == DataType::TYPE_FP16 && m > 32 && n <= 768)) {
+            //     layernorm2d_fwd_traits traits{"fp16", "fp16", "fp32", "fp32", 0, 1, 0};
+            //     layernorm2d_fwd_args   args{input->data(),
+            //                               params.residual1.value().get().data(),
+            //                               nullptr,
+            //                               nullptr,
+            //                               gamma,
+            //                               beta,
 
-                                          norm_output->data(),
-                                          (params.before_norm_output == nullptr) ? input->data() :
-                                                                                     params.before_norm_output->data(),
-                                          nullptr,
-                                          nullptr,  // p_mean, unsupported yet
-                                          nullptr,  // p_invStd, unsupported yet
+            //                               norm_output->data(),
+            //                               (params.before_norm_output == nullptr) ? input->data() :
+            //                                                                          params.before_norm_output->data(),
+            //                               nullptr,
+            //                               nullptr,  // p_mean, unsupported yet
+            //                               nullptr,  // p_invStd, unsupported yet
 
-                                          static_cast<float>(eps),
-                                          static_cast<int32_t>(m),
-                                          static_cast<int32_t>(n),
-                                          static_cast<int32_t>(n),   // x row_stride
-                                          static_cast<int32_t>(n),   // x residule row stride
-                                          static_cast<int32_t>(n),   // y row stride
-                                          static_cast<int32_t>(n)};  // y residule row stride
+            //                               static_cast<float>(eps),
+            //                               static_cast<int32_t>(m),
+            //                               static_cast<int32_t>(n),
+            //                               static_cast<int32_t>(n),   // x row_stride
+            //                               static_cast<int32_t>(n),   // x residule row stride
+            //                               static_cast<int32_t>(n),   // y row stride
+            //                               static_cast<int32_t>(n)};  // y residule row stride
 
-                layernorm2d_fwd(traits, args, {stream_, false, 0, 0, 1});
+            //     layernorm2d_fwd(traits, args, {stream_, false, 0, 0, 1});
             } else {
                 DISPATCH_CUDA_FUNCTION_DATA_TYPE(
                     data_type,
@@ -273,30 +274,31 @@ LayernormOutput ROCmDevice::layernorm(const LayernormParams& params) {
         }
     } else {
         if (params.norm_type == NormType::layernorm) {
-            if (data_type == DataType::TYPE_FP16 && m > 32 && n <= 768) {
-                layernorm2d_fwd_traits traits{"fp16", "fp16", "fp32", "fp32", 0, 0, 0};
-                layernorm2d_fwd_args   args{input->data(),
-                                          nullptr,
-                                          nullptr,
-                                          nullptr,
-                                          gamma,
-                                          beta,
+            if (false) {
+            // if (data_type == DataType::TYPE_FP16 && m > 32 s&& n <= 768) {
+            //     layernorm2d_fwd_traits traits{"fp16", "fp16", "fp32", "fp32", 0, 0, 0};
+            //     layernorm2d_fwd_args   args{input->data(),
+            //                               nullptr,
+            //                               nullptr,
+            //                               nullptr,
+            //                               gamma,
+            //                               beta,
 
-                                          norm_output->data(),
-                                          nullptr,
-                                          nullptr,
-                                          nullptr,  // p_mean, unsupported yet
-                                          nullptr,  // p_invStd, unsupported yet
+            //                               norm_output->data(),
+            //                               nullptr,
+            //                               nullptr,
+            //                               nullptr,  // p_mean, unsupported yet
+            //                               nullptr,  // p_invStd, unsupported yet
 
-                                          static_cast<float>(eps),
-                                          static_cast<int32_t>(m),
-                                          static_cast<int32_t>(n),
-                                          static_cast<int32_t>(n),   // x row_stride
-                                          static_cast<int32_t>(n),   // x residule row stride
-                                          static_cast<int32_t>(n),   // y row stride
-                                          static_cast<int32_t>(n)};  // y residule row stride
+            //                               static_cast<float>(eps),
+            //                               static_cast<int32_t>(m),
+            //                               static_cast<int32_t>(n),
+            //                               static_cast<int32_t>(n),   // x row_stride
+            //                               static_cast<int32_t>(n),   // x residule row stride
+            //                               static_cast<int32_t>(n),   // y row stride
+            //                               static_cast<int32_t>(n)};  // y residule row stride
 
-                layernorm2d_fwd(traits, args, {stream_, false, 0, 0, 1});
+            //     layernorm2d_fwd(traits, args, {stream_, false, 0, 0, 1});
             } else {
                 DISPATCH_CUDA_FUNCTION_DATA_TYPE(data_type,
                                                  invokeGeneralLayerNorm,
@@ -318,37 +320,51 @@ LayernormOutput ROCmDevice::layernorm(const LayernormParams& params) {
             check_cuda_error();
             return LayernormOutput({norm_output, params.before_norm_output});
         } else if (params.norm_type == NormType::rmsnorm) {
-            std::string prec_i;
-            if (data_type == DataType::TYPE_FP16)
-                prec_i = "fp16";
-            else if (data_type == DataType::TYPE_BF16)
-                prec_i = "bf16";
-            else
-                throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
+            // std::string prec_i;
+            // if (data_type == DataType::TYPE_FP16)
+            //     prec_i = "fp16";
+            // else if (data_type == DataType::TYPE_BF16)
+            //     prec_i = "bf16";
+            // else
+            //     throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
 
-            rmsnorm2d_fwd_traits traits{prec_i, prec_i, "fp32", "fp32", 0, 0, 0, 0};
+            // rmsnorm2d_fwd_traits traits{prec_i, prec_i, "fp32", "fp32", 0, 0, 0, 0};
 
-            rmsnorm2d_fwd_args args{input->data(),
-                                    nullptr,
-                                    nullptr,
-                                    gamma,
-                                    norm_output->data(),
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    static_cast<float>(eps),
-                                    static_cast<int32_t>(m),
-                                    static_cast<int32_t>(n),
-                                    static_cast<int32_t>(n),
-                                    static_cast<int32_t>(n),
-                                    static_cast<int32_t>(n),
-                                    static_cast<int32_t>(n)};
+            // rmsnorm2d_fwd_args args{input->data(),
+            //                         nullptr,
+            //                         nullptr,
+            //                         gamma,
+            //                         norm_output->data(),
+            //                         nullptr,
+            //                         nullptr,
+            //                         nullptr,
+            //                         nullptr,
+            //                         static_cast<float>(eps),
+            //                         static_cast<int32_t>(m),
+            //                         static_cast<int32_t>(n),
+            //                         static_cast<int32_t>(n),
+            //                         static_cast<int32_t>(n),
+            //                         static_cast<int32_t>(n),
+            //                         static_cast<int32_t>(n)};
 
-            float run_time = rmsnorm2d_fwd(traits, args, {stream_, false, 0, 0, 1});
+            // float run_time = rmsnorm2d_fwd(traits, args, {stream_, false, 0, 0, 1});
 
             // std::cout << "rmsnorm2d_fwd run_time: " << run_time * 1.E3 << " us"<< std::endl;
-
+            DISPATCH_CUDA_FUNCTION_DATA_TYPE(
+                data_type,
+                invokeGeneralRmsNorm,
+                norm_output->data(),     // out
+                input->data(),           // input
+                gamma,                   // gamma
+                nullptr,                 // beta (RMSNorm不需要beta)
+                static_cast<float>(eps), // eps
+                static_cast<int>(m),     // tokens
+                static_cast<int>(n),     // hidden_dim
+                stream_,                 // stream
+                nullptr,                 // scale
+                nullptr,                 // dynamic_scale
+                nullptr                  // out_quant
+            );
             check_cuda_error();
             return LayernormOutput({norm_output, params.before_norm_output});
         }

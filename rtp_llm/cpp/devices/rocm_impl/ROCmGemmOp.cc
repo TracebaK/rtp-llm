@@ -15,8 +15,8 @@
 #include <utility>
 
 // aiter kenels
-#include "gemm_a8w8_blockscale.h"
-#include "gemm_a8w8_bpreshuffle.h"
+// #include "gemm_a8w8_blockscale.h"
+// #include "gemm_a8w8_bpreshuffle.h"
 
 // #include "aiter_meta/csrc/ck_gemm_a8w8_blockscale/include/gemm_a8w8_blockscale.h"
 // #include "aiter_meta/csrc/ck_gemm_a8w8_bpreshuffle/include/gemm_a8w8_bpreshuffle.h"
@@ -296,7 +296,8 @@ BufferPtr ROCmDevice::gemm(const GemmParams& params) {
             const QBuffer& QB  = reinterpret_cast<const QBuffer&>(params.B);
             auto           fpB = allocateBuffer({params.A.type(), {params.B.shape()}, AllocationType::DEVICE}, {"fpB"});
 
-#if USING_CK_INT4
+#if 0
+//#if USING_CK_INT4
             // Using CK int4-dequant fusion Gemm kernel
             auto ck_gemm_params = ckGemmParam({params.A.data(),
                                                QB.kernel().data(),
@@ -361,26 +362,26 @@ BufferPtr ROCmDevice::gemm(const GemmParams& params) {
                                                     computeType);
 #endif
             return std::move(output);
-        } else if (params.A.type() != DataType::TYPE_QFP8_E4M3 && params.B.type() == DataType::TYPE_QFP8_E4M3) {
-            const QBuffer& qB        = reinterpret_cast<const QBuffer&>(params.B);
-            Buffer         qB_kernel = qB.kernel();
-            Buffer         qB_scales = qB.scales();
-            ROCM_CHECK_VALUE((qB_kernel.dim() == 2), "quant Gemm only support 2D");
-            size_t kernel_K = qB_kernel.shape()[0], kernel_N = qB_kernel.shape()[1];
-            size_t scale_K = qB_scales.shape()[0], scale_N = qB_scales.shape()[1];
-            if (kernel_K == scale_K * 128) {
-                InvokeROCmDeepGemm(params, output);
-            } else if (1 == scale_K && scale_N == kernel_N) {
-                InvokeROCmPTPCGemm(params, output);
-            } else {
-                ROCM_FAIL(
-                    "[GEMM]: Other FP8 weight quantization not implemented, with weight kernel [%d, %d], weight scales [%d, %d]",
-                    kernel_K,
-                    kernel_N,
-                    scale_K,
-                    scale_N);
-            }
-            return std::move(output);
+        // } else if (params.A.type() != DataType::TYPE_QFP8_E4M3 && params.B.type() == DataType::TYPE_QFP8_E4M3) {
+        //     const QBuffer& qB        = reinterpret_cast<const QBuffer&>(params.B);
+        //     Buffer         qB_kernel = qB.kernel();
+        //     Buffer         qB_scales = qB.scales();
+        //     ROCM_CHECK_VALUE((qB_kernel.dim() == 2), "quant Gemm only support 2D");
+        //     size_t kernel_K = qB_kernel.shape()[0], kernel_N = qB_kernel.shape()[1];
+        //     size_t scale_K = qB_scales.shape()[0], scale_N = qB_scales.shape()[1];
+        //     if (kernel_K == scale_K * 128) {
+        //         InvokeROCmDeepGemm(params, output);
+        //     } else if (1 == scale_K && scale_N == kernel_N) {
+        //         InvokeROCmPTPCGemm(params, output);
+        //     } else {
+        //         ROCM_FAIL(
+        //             "[GEMM]: Other FP8 weight quantization not implemented, with weight kernel [%d, %d], weight scales [%d, %d]",
+        //             kernel_K,
+        //             kernel_N,
+        //             scale_K,
+        //             scale_N);
+        //     }
+        //     return std::move(output);
         } else {
             ROCM_FAIL("[GEMM]: Other weight quantization not implemented");
         }
