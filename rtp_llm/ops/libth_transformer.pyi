@@ -678,6 +678,8 @@ class MiscellaneousConfig:
     load_balance: int
     step_records_max_size: int
     step_records_time_range: int
+    disable_pdl: bool
+    aux_string: str
 
     def __init__(
         self,
@@ -685,6 +687,7 @@ class MiscellaneousConfig:
         step_records_time_range: int = 60000000,
         step_records_max_size: int = 1000,
         disable_pdl: bool = True,
+        aux_string: str = "",
     ) -> None: ...
     def to_string(self) -> str: ...
     def update_from_env(self) -> None: ...
@@ -1026,15 +1029,34 @@ class PyCacheStoreInputs:
     def __init__(self) -> None: ...
 
 class PyAttentionInputs:
+    is_prefill: bool
+    prefix_lengths: torch.Tensor
+    sequence_lengths: torch.Tensor
+    input_lengths: torch.Tensor
+    kv_cache_block_id_host: torch.Tensor
+    kv_cache_block_id_device: torch.Tensor
+    dtype: torch.dtype
+    kv_block_offset: int = 0
+    cu_seqlens: torch.Tensor
+    padding_offset: torch.Tensor
     def get_prefill_flash_infer_attn(self) -> typing.Any:
         pass
 
     def get_decode_flash_infer_attn(self) -> typing.Any:
         pass
 
+class BertEmbeddingInputs:
+    combo_position_ids: torch.Tensor
+    position_encoding: torch.Tensor
+    combo_tokens_type_ids: torch.Tensor
+    token_type_embedding: torch.Tensor
+    input_embedding_scalar: float
+    def __init__(self) -> None: ...
+
 class PyModelInputs:
     input_ids: torch.Tensor
     attention_inputs: PyAttentionInputs
+    bert_embedding_inputs: BertEmbeddingInputs
 
 class ParamsBase:
     def fill_params(

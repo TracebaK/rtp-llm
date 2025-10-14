@@ -505,7 +505,7 @@ class CustomChatRenderer:
                 )
             )
 
-        logging.debug(f"chat_logprob: {chat_logprob.model_dump_json(indent=4)}")
+        logging.debug("chat_logprob: %s", chat_logprob.model_dump_json(indent=4))
 
         return chat_logprob
 
@@ -522,6 +522,11 @@ class CustomChatRenderer:
 
         if generate_config.return_hidden_states and output.hidden_states is not None:
             result().hidden_states = output.hidden_states.tolist()
+        if (
+            generate_config.return_all_hidden_states
+            and output.all_hidden_states is not None
+        ):
+            result().all_hidden_states = output.all_hidden_states.tolist()
         if generate_config.calculate_loss != 0 and output.loss is not None:
             result().loss = output.loss.tolist()
         if generate_config.return_logits and output.logits is not None:
@@ -769,7 +774,7 @@ class CustomChatRenderer:
                 buffer.finish_reason = FinisheReason.tool_calls
 
             if buffer.finish_reason == None:
-                logging.debug(f"output {i} found no stop reason! use stop as default.")
+                logging.debug("output %s found no stop reason! use stop as default.", i)
                 buffer.finish_reason = FinisheReason.stop
             if i == 0:
                 input_token_length = buffer.output.aux_info.input_len
@@ -936,7 +941,7 @@ class CustomChatRenderer:
                 )
             )
 
-        logging.debug(f"chat_logprob: {chat_logprob.model_dump_json(indent=4)}")
+        logging.debug("chat_logprob: %s", chat_logprob.model_dump_json(indent=4))
 
         return chat_logprob
 
@@ -1096,7 +1101,7 @@ class CustomChatRenderer:
             zip(buffer_list, input_len_list, output_len_list, reuse_len_list)
         ):
             if buffer.finish_reason == None:
-                logging.debug(f"output {i} found no stop reason! use stop as default.")
+                logging.debug("output %s found no stop reason! use stop as default.", i)
                 buffer.finish_reason = FinisheReason.stop
             if i == 0:
                 input_token_length = input_len

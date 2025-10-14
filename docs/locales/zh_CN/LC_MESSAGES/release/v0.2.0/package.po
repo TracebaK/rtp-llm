@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: RTP-LLM 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-12 17:38+0800\n"
+"POT-Creation-Date: 2025-10-14 10:12+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -31,6 +31,10 @@ msgstr "whl包"
 msgid "docker"
 msgstr "docker镜像"
 
+#: ../../release/v0.2.0/package.md:8
+msgid "Inference"
+msgstr ""
+
 #: ../../release/v0.2.0/package.md
 msgid "**CardType**"
 msgstr "**卡类型**"
@@ -44,26 +48,101 @@ msgid "**tag**"
 msgstr "**标签**"
 
 #: ../../release/v0.2.0/package.md
-msgid "**CUDA**"
+#, fuzzy
+msgid "**CUDA-SM9x**"
 msgstr "**CUDA**"
 
 #: ../../release/v0.2.0/package.md
-msgid "hub.docker.alibaba-inc.com/isearch/rtp_llm_gpu_cuda12"
+#, fuzzy
+msgid "hub.docker.alibaba-inc.com/isearch/rtp_llm_sm9x"
 msgstr "hub.docker.alibaba-inc.com/isearch/rtp_llm_gpu_cuda12"
 
 #: ../../release/v0.2.0/package.md
-msgid "2025_08_10_21_00_0b10e6b_accelerated"
-msgstr "2025_08_10_21_00_0b10e6b_accelerated"
+#, fuzzy
+msgid "0.2.0_2025_09_24_21_00_615e568_accelerated"
+msgstr "hub.docker.alibaba-inc.com/isearch/rtp_llm_gpu_cuda12"
+
+#: ../../release/v0.2.0/package.md
+#, fuzzy
+msgid "**CUDA-SM8x**"
+msgstr "**CUDA**"
+
+#: ../../release/v0.2.0/package.md
+msgid ""
+"ali-hangzhou-hub-registry.cn-"
+"hangzhou.cr.aliyuncs.com/isearch/rtp_llm_sm8x_opensource"
+msgstr ""
+
+#: ../../release/v0.2.0/package.md
+msgid "0.2.0_0.2.0_2025_10_09_17_35_8fa289f5"
+msgstr ""
+
+#: ../../release/v0.2.0/package.md
+#, fuzzy
+msgid "**CUDA-SM7x**"
+msgstr "**CUDA**"
+
+#: ../../release/v0.2.0/package.md
+#, fuzzy
+msgid "hub.docker.alibaba-inc.com/isearch/rtp_llm_sm7x"
+msgstr "hub.docker.alibaba-inc.com/isearch/rtp_llm_gpu_cuda12"
 
 #: ../../release/v0.2.0/package.md
 msgid "**AMD**"
 msgstr "**AMD**"
 
 #: ../../release/v0.2.0/package.md
+#, fuzzy
 msgid "hub.docker.alibaba-inc.com/isearch/rtp_llm_rocm"
 msgstr "hub.docker.alibaba-inc.com/isearch/rtp_llm_rocm"
 
+#: ../../release/v0.2.0/package.md:17
+msgid "Others"
+msgstr ""
+
 #: ../../release/v0.2.0/package.md
-msgid "2025_07_07_11_26_b8c2167_accelerated"
-msgstr "2025_07_07_11_26_b8c2167_accelerated"
+#, fuzzy
+msgid "**Role**"
+msgstr "**卡类型**"
+
+#: ../../release/v0.2.0/package.md
+msgid "**Frontend**"
+msgstr ""
+
+#: ../../release/v0.2.0/package.md
+#, fuzzy
+msgid "hub.docker.alibaba-inc.com/isearch/rtp_llm_frontend"
+msgstr "hub.docker.alibaba-inc.com/isearch/rtp_llm_rocm"
+
+#: ../../release/v0.2.0/package.md
+#, fuzzy
+msgid "**Master**"
+msgstr "**镜像**"
+
+#: ../../release/v0.2.0/package.md
+msgid "hub.docker.alibaba-inc.com/aone/flexlb"
+msgstr ""
+
+#: ../../release/v0.2.0/package.md
+msgid "0.2.0_2025_09_19_11_16_3b779f1_accelerated"
+msgstr ""
+
+#: ../../release/v0.2.0/package.md:24
+#, fuzzy
+msgid "Wheel"
+msgstr "whl包"
+
+#: ../../release/v0.2.0/package.md
+#, fuzzy
+msgid "**wheel**"
+msgstr "whl包"
+
+#: ../../release/v0.2.0/package.md
+msgid ""
+"https://rtp-opensource.oss-cn-"
+"hangzhou.aliyuncs.com/package/daily/2025_10_09/rtp_llm-0.2.0-0.2.0-2025_10_09_17_35_8fa289f5-cp310-cp310-manylinux1_x86_64.whl"
+msgstr ""
+
+#~ msgid "hub.docker.alibaba-inc.com/isearch/rtp_llm_sm8x"
+#~ msgstr "hub.docker.alibaba-inc.com/isearch/rtp_llm_gpu_cuda12"
 
