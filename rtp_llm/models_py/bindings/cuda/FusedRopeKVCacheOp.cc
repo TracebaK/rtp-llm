@@ -42,6 +42,7 @@ torch::Tensor FusedRopeKVCachePrefillOp::forward(const torch::Tensor&           
                                                  std::optional<torch_ext::KVCache> kv_cache,
                                                  const TRTAttnPtr&                 params) {
     // bool store_cache = params.common.kv_cache.has_value();
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     const int     local_head_num        = attn_configs_.head_num;
     const int     local_head_num_kv     = attn_configs_.kv_head_num;
     const int     size_per_head         = attn_configs_.size_per_head;
@@ -168,6 +169,7 @@ torch::Tensor FusedRopeKVCacheDecodeOp::forward(const torch::Tensor&            
                                                 std::optional<torch_ext::KVCache> kv_cache,
                                                 const TRTAttnPtr&                 params) {
     RTP_LLM_CHECK_WITH_INFO(kv_cache.has_value(), "decode should have kv cache.");
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     auto kv_block_array            = params->kv_block_array;
     kv_block_array.mPrimaryPoolPtr = kv_cache.value().k_cache_base.data_ptr();
     if (kv_cache.value().k_scale_base.defined() && kv_cache.value().k_scale_base.numel()) {

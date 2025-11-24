@@ -176,7 +176,7 @@ void HWKernelConfig::update_from_env_for_test() {
     rocm_hipblaslt_config        = autil::EnvUtil::getEnv("ROCM_HIPBLASLT_CONFIG", "gemm_config.csv");
     enable_cuda_graph            = bool_from_env_for_test("ENABLE_CUDA_GRAPH", false);
     enable_cuda_graph_debug_mode = bool_from_env_for_test("ENABLE_CUDA_GRAPH_DEBUG_MODE", false);
-    use_aiter_pa                 = bool_from_env_for_test("USE_AITER_PA", true);
+    use_aiter_pa                 = bool_from_env_for_test("USE_AITER_PA", false);
     enable_native_cuda_graph     = bool_from_env_for_test("ENABLE_NATIVE_CUDA_GRAPH", false);
     num_native_cuda_graph        = autil::EnvUtil::getEnv("NUM_NATIVE_CUDA_GRAPH", 200);
 }

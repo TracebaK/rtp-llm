@@ -10,11 +10,11 @@ rocm_configure(name = "local_config_rocm")
 
 python_configure(name = "local_config_python")
 
-load("//deps:http.bzl", "http_deps")
+load("//open_source/deps:http.bzl", "http_deps")
 
 http_deps()
 
-load("//deps:git.bzl", "git_deps")
+load("//open_source/deps:git.bzl", "git_deps")
 
 git_deps()
 
@@ -22,7 +22,7 @@ load("@rules_python//python:repositories.bzl", "py_repositories")
 
 py_repositories()
 
-load("//deps:pip.bzl", "pip_deps")
+load("//open_source/deps:pip.bzl", "pip_deps")
 
 pip_deps()
 

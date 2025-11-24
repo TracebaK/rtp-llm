@@ -220,6 +220,8 @@ void ROCmDevice::mlaAbsorbAttention(const MlaAttentionModuleParams& params) {
 }
 
 AttentionModuleOutput ROCmDevice::mlaContextAttention(const MlaAttentionModuleParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
+/*
     DevicePerfWrapper wrapper(this, "mlaContext_layer_%d", params.layer_id);
     auto&             q         = params.q;
     auto&             fused_qkv = params.fused_qkv;
@@ -310,6 +312,7 @@ AttentionModuleOutput ROCmDevice::mlaContextAttention(const MlaAttentionModulePa
     auto qkv_output_reshaped = padded_qkv_output_t->reshape({token_num, params.configs.head_num, size_per_head});
     auto sliced_buffer       = slice({qkv_output_reshaped, -1, 0, (int64_t)v_head_dim});
     copy({*params.qkv_output, *sliced_buffer});
+*/
 }
 
 }  // namespace rtp_llm

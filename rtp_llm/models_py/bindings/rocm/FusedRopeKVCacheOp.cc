@@ -37,6 +37,7 @@ CKAttnPtr FusedRopeKVCachePrefillOp::prepare(torch_ext::PyAttentionInputs attn_i
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> FusedRopeKVCachePrefillOp::forward(
     const torch::Tensor& qkv, FMHAType fmha_type, std::optional<torch_ext::KVCache> kv_cache, const CKAttnPtr& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     // bool store_cache = params.common.kv_cache.has_value();
     const int local_head_num    = attn_configs_.head_num;
     const int local_head_num_kv = attn_configs_.kv_head_num;
@@ -225,6 +226,7 @@ torch::Tensor FusedRopeKVCacheDecodeOp::forward(const torch::Tensor&            
                                                 const CKAttnPtr&                  params) {
     // Check that kv_cache is provided
     // (CUDA version uses RTP_LLM_CHECK_WITH_INFO, use assert or similar if not available)
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     assert(kv_cache.has_value() && "decode should have kv cache.");
     auto kv_block_array            = params->kv_block_array;
     kv_block_array.mPrimaryPoolPtr = kv_cache.value().k_cache_base.data_ptr();

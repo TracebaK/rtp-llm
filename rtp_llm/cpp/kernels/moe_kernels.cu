@@ -41,6 +41,10 @@
 #include "rtp_llm/cpp/rocm/hip_host_utils.h"
 #endif
 
+__device__ inline void unsafeAtomicAdd(__hip_bfloat162* addr, __hip_bfloat162 val){}
+
+__device__ inline void unsafeAtomicAdd(__half2* addr, __half2 val) {}
+
 namespace rtp_llm {
 
 // Scatter-add operations
@@ -117,7 +121,7 @@ __global__ void scatter_add_kernel(T const* src, int N, int K, int32_t const* in
 #ifdef ENABLE_BF16
             if constexpr (std::is_same<T, __nv_bfloat162>::value) {
                 unsafeAtomicAdd(reinterpret_cast<__hip_bfloat162*>(out) + new_idx + k + i,
-                                (__hip_bfloat162)src[thread_idx + i]);
+                               (__hip_bfloat162)src[thread_idx + i]);
             } else {
                 unsafeAtomicAdd(out + new_idx + k + i, src[thread_idx + i]);
             }

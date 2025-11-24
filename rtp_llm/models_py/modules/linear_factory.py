@@ -74,6 +74,7 @@ class LinearFactory:
         if force_fp8 or (
             weight_scales is not None and weight.dtype == torch.float8_e4m3fn
         ):
+            print(f"-----------------fi---------------------------- \n")
             if weight_scales is None:
                 raise ValueError("FP8 linear layer requires weight_scales")
             if config is None:
@@ -94,6 +95,7 @@ class LinearFactory:
                         )
                     return Fp8DeepGEMMLinear(weight, weight_scales, bias, config)
         else:
+            print(f"--------------------else---------------------------\n")
             return Linear(weight, bias)
 
     @staticmethod

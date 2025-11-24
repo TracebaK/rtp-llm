@@ -5,6 +5,7 @@
 namespace rtp_llm {
 
 BufferPtr DeviceBase::mhaQKVGemm(const AttentionLayerParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     const auto& input      = params.input;
     const auto& qkv_weight = params.weights.qkv_weight;
 

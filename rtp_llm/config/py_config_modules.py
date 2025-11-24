@@ -756,7 +756,7 @@ class PyHwKernelConfig:
         self.rocm_hipblaslt_config: str = "gemm_config.csv"
         self.enable_cuda_graph: bool = False
         self.enable_cuda_graph_debug_mode: bool = False
-        self.use_aiter_pa: bool = True
+        self.use_aiter_pa: bool = False
         self.enable_native_cuda_graph: bool = False
         self.num_native_cuda_graph: int = 200
 

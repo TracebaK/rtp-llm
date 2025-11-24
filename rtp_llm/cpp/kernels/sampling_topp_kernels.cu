@@ -1097,11 +1097,12 @@ void invokeBatchTopPSampling(void*           workspace,
     segmented_topp_impl::DType_t               dataTypeKind =
         (std::is_same<T, float>::value) ? segmented_topp_impl::kFLOAT : segmented_topp_impl::kHALF;
 
-    if (!do_radix_sort) {
+     if (false) {
+//    if (!do_radix_sort) {
         RTP_LLM_CHECK(cuda_device_prop != nullptr);
         memset(&context, 0, sizeof(context));
         context.sm_count       = cuda_device_prop->multiProcessorCount;
-        context.sm_shared_size = cuda_device_prop->sharedMemPerMultiprocessor;
+//        context.sm_shared_size = cuda_device_prop->sharedMemPerMultiprocessor;
         context.sm_version     = cuda_device_prop->major * 100 + cuda_device_prop->minor * 10;
 
         memset(&params, 0, sizeof(params));

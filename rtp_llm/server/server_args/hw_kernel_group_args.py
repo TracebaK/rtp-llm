@@ -91,6 +91,6 @@ def init_hw_kernel_group_args(parser):
         "--use_aiter_pa",
         env_name="USE_AITER_PA",
         type=str2bool,
-        default=True,
+        default=False,
         help="Rocm是否使用AITER Attention",
     )

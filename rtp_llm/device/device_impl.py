@@ -318,6 +318,11 @@ class PpuImpl(CudaImpl):
 class RocmImpl(GpuImpl):
     def __init__(self, exported_device: DeviceExporter):
         super().__init__(exported_device)
+        device_name = torch.cuda.get_device_name(0)
+        self.is_dtk_device = "BW200" in device_name or "DTK" in device_name
+        if self.is_dtk_device:
+            logging.info(f"TODO(limengmeng) Detected DTK device {device_name}, Skipping ROCm initaliztion.")
+            return
         try:
             from pyrsmi import rocml
 
@@ -326,12 +331,18 @@ class RocmImpl(GpuImpl):
             logging.warn(f"no rocm smi found: " + str(e))
 
     def _get_mem_info(self) -> MemInfo:
-        from pyrsmi import rocml
+        if self.ls_dtk_device:
+            # 使用 PyTorch 安全获取内存信息（无需 ROCm）
+            toral = torch.cuda.get_device_properties(0).total_memory
+            used = torch.cuda.memory_allocated(0)
+            return MemInfo(total - used, used)
+        else:
+            from pyrsmi import rocml
 
-        id = self.get_device_id()
-        used = rocml.smi_get_device_memory_used(id)
-        total = rocml.smi_get_device_memory_total(id)
-        return MemInfo(total - used, used)
+            id = self.get_device_id()
+            used = rocml.smi_get_device_memory_used(id)
+            total = rocml.smi_get_device_memory_total(id)
+            return MemInfo(total - used, used)
 
     @property
     def arch(self) -> str:
@@ -349,7 +360,8 @@ class RocmImpl(GpuImpl):
         specify_gpu_arch = (
             self.py_env_configs.py_device_resource_config.specify_gpu_arch
         )
-        return "900" if specify_gpu_arch == "" else specify_gpu_arch
+        return "936"
+        #return "900" if specify_gpu_arch == "" else specify_gpu_arch
 
     def preprocess_groupwise_weight_params(
         self,
@@ -440,7 +452,8 @@ class RocmImpl(GpuImpl):
         specify_gpu_arch = (
             self.py_env_configs.py_device_resource_config.specify_gpu_arch
         )
-        return "900" if specify_gpu_arch == "" else specify_gpu_arch
+        return "936"
+        #return "900" if specify_gpu_arch == "" else specify_gpu_arch
 
     def shuffle_moe_weight(
         self, x: torch.Tensor, datatype: torch.dtype, name: str

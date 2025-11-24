@@ -9,6 +9,7 @@ using namespace std;
 
 namespace rtp_llm {
 AttentionLayerOutput DeviceBase::mlaAttentionLayer(const AttentionLayerParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     DevicePerfWrapper wrapper(this, "mla_layer_%d", params.layer_id);
     const auto&       input         = params.input;
     const auto&       input_lengths = *params.common.input_lengths;

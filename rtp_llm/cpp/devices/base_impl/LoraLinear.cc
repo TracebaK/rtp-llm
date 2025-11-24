@@ -5,7 +5,9 @@
 namespace rtp_llm {
 
 LoraLinearOutput DeviceBase::loraLinear(const LoraLinearParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     auto output = gemm(params.gemm_params);
+    printf("limengmeng LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     if (params.lora_input) {
         auto&                  lora_input_lengths     = *params.lora_input->lora_input_lengths_;
         auto&                  lora_a                 = params.lora_input->lora_a_;
@@ -27,15 +29,18 @@ LoraLinearOutput DeviceBase::loraLinear(const LoraLinearParams& params) {
             }
             start = start + lora_input_lengths_ptr[i];
         }
+        printf("LOG(INFO1) %s: %d %s\n", __FILE__, __LINE__, __func__);
         if (inputs.size() > 0) {
             if (params.lora_input->use_same_lora_) {
                 RTP_LLM_LOG_DEBUG("use same lora");
+                printf("LOG(INFO2) %s: %d %s\n", __FILE__, __LINE__, __func__);
                 auto tmp    = gemm({params.gemm_params.A,
                                     *lora_as[0],
                                     std::nullopt,
                                     nullptr,
                                     DataType::TYPE_INVALID,
                                     params.gemm_params.D_type});
+                printf("LOG(INFO3) %s: %d %s\n", __FILE__, __LINE__, __func__);
                 auto result = gemm({*tmp,
                                     *lora_bs[0],
                                     std::nullopt,
@@ -54,11 +59,13 @@ LoraLinearOutput DeviceBase::loraLinear(const LoraLinearParams& params) {
                 auto result = groupedGemm({tmp.output, lora_bs, outputs});
             }
         }
+        printf("LOG(INFO4) %s: %d %s\n", __FILE__, __LINE__, __func__);
     }
     return LoraLinearOutput({std::move(output)});
 }
 
 ReduceScatterLoraLinearOutput DeviceBase::loraLinearReduceScatter(const LoraLinearReduceScatterParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     const LoraLinearParams& linear_params     = params.lora_linear_params;
     const auto&             gemm_a            = linear_params.gemm_params.A;
     auto                    output            = linear_params.gemm_params.D;
@@ -121,6 +128,7 @@ ReduceScatterLoraLinearOutput DeviceBase::loraLinearReduceScatter(const LoraLine
 }
 
 AllGatherLoraLinearOutput DeviceBase::allGatherloraLinear(const AllGatherLoraLinearParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     const LoraLinearParams& linear_params = params.lora_linear_params;
     const auto&             gemm_a        = linear_params.gemm_params.A;
     const auto&             gemm_b        = linear_params.gemm_params.B;

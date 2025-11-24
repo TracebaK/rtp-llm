@@ -64,7 +64,7 @@ ROCmDevice::ROCmDevice(const DeviceInitParams& params): DeviceBase(params) {
     if (tp_nccl_param_.world_size_ > 1) {
         auto&               nccl_param = tp_nccl_param_;
         std::vector<size_t> tp_ranks   = fcNcclGatherRanks(nccl_param, stream_);
-        custom_allreduce_comm_         = initCustomAllReduceComm(nccl_param, tp_ranks, stream_);
+        // custom_allreduce_comm_         = initCustomAllReduceComm(nccl_param, tp_ranks, stream_);
     }
 
     auto allocator_ptr     = new Allocator<AllocatorType::ROCM>();
@@ -121,10 +121,10 @@ ROCmDevice::ROCmDevice(const DeviceInitParams& params): DeviceBase(params) {
         hipDataType::HIP_R_16F, hipDataType::HIP_R_16F, hipDataType::HIP_R_16F, hipDataType::HIP_R_32F);
 
     hipblas_mm_wrapper_->setStream(stream_);
-    fmha_runner_.reset(new rocmFmhaWrapper());
-    fmha_runner_->init(stream_);
-    moe_runner_.reset(new rocmMoeWrapper());
-    ck_gemm_runner_.reset(new rocmCKGemmWrapper());
+    // fmha_runner_.reset(new rocmFmhaWrapper());
+    // fmha_runner_->init(stream_);
+    // moe_runner_.reset(new rocmMoeWrapper());
+    // ck_gemm_runner_.reset(new rocmCKGemmWrapper());
 
     // select mla type
     if (params.mla_ops_type != MlaOpsType::AUTO) {

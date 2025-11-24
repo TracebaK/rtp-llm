@@ -17,6 +17,7 @@ class CausalAttentionPure(nn.Module):
         self.head_dim = config.hidden_size // config.head_num
         self.head_num = config.head_num
         self.num_key_value_groups = config.head_num // config.head_num_kv
+        print(f"############## call class CausalAttentionPure(nn.Module)")
         self.q_size = config.head_num * self.head_dim
 
     def forward(

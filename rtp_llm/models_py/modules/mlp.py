@@ -2,12 +2,11 @@ from typing import Dict
 
 import torch
 from torch import nn
-
+import torch.nn.functional as F
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from rtp_llm.models_py.modules.linear_factory import LinearFactory
 from rtp_llm.ops import rtp_llm_ops
 from rtp_llm.utils.model_weight import W
-
 
 class DenseMLP(nn.Module):
     def __init__(
@@ -25,7 +24,7 @@ class DenseMLP(nn.Module):
         self.down_proj = LinearFactory.create_linear_from_weights(
             weights, W.ffn_w2, W.ffn_s2, W.ffn_b2, config
         )
-
+        print(f"################## class DenseMLP \n")
         if config.activation_type == "SiGLU":
             self.act_fn = nn.SiLU()
         else:
@@ -45,7 +44,7 @@ class FusedSiluActDenseMLP(nn.Module):
         self, config: GptInitModelParameters, weights: Dict[str, torch.Tensor]
     ):
         super().__init__()
-
+        print(f"##################### class FusedSiluActDenseMLP")
         assert (
             config.activation_type == "SiGLU"
         ), "FusedSiluActDenseMLP only supports SiGLU activation"
@@ -76,13 +75,16 @@ class FusedSiluActDenseMLP(nn.Module):
     def forward(self, x: torch.Tensor):
         gate_up = self.gate_up_proj(x)
 
-        d = gate_up.shape[-1] // 2
-        output_shape = gate_up.shape[:-1] + (d,)
-        output = torch.empty(output_shape, dtype=gate_up.dtype, device=gate_up.device)
-        stream_id = torch.cuda.current_stream().cuda_stream
-        rtp_llm_ops.silu_and_mul(output, gate_up, stream_id)
-        down_proj = self.down_proj(output)
-        return down_proj
+        #d = gate_up.shape[-1] // 2
+        #output_shape = gate_up.shape[:-1] + (d,)
+        #output = torch.empty(output_shape, dtype=gate_up.dtype, device=gate_up.device)
+        #stream_id = torch.cuda.current_stream().cuda_stream
+        #rtp_llm_ops.silu_and_mul(output, gate_up, stream_id)
+        #down_proj = self.down_proj(output)
+        #return down_proj
+        gate, up = gate_up.chunk(2, dim=-1)
+        output = F.silu(gate) * up
+        return self.down_proj(output)
 
 
 class BertGeluActDenseMLP(nn.Module):
@@ -99,7 +101,7 @@ class BertGeluActDenseMLP(nn.Module):
         self.output_proj = LinearFactory.create_linear_from_weights(
             weights, W.ffn_w2, W.ffn_s2, W.ffn_b2, config
         )
-
+        print("################# class BertGeluActDenseMLP")
         # Use GeLU activation
         self.act_fn = nn.GELU()
 

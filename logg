@@ -1,0 +1,815 @@
+[process-2348695][root][2025-11-19 16:49:15.574][__init__.py:<module>():58][INFO] failed to load libth_transformer_config.so from libs, try use another path
+[process-2348695][root][2025-11-19 16:49:15.575][__init__.py:<module>():64][INFO] failed to find libth_transformer_config.so in /home/client/ali/tracebak/rtp-llm-bak-dtk25042/rtp_llm/../bazel-bin
+[process-2348695][root][2025-11-19 16:49:15.575][__init__.py:<module>():68][INFO] so path: /home/client/ali/tracebak/rtp-llm-bak-dtk25042/rtp_llm/../bazel-bin
+[process-2348695][root][2025-11-19 16:49:15.575][__init__.py:<module>():91][INFO] torch path: ['/usr/local/lib/python3.10/dist-packages/torch']
+[process-2348695][root][2025-11-19 16:49:15.576][__init__.py:<module>():97][INFO] loaded libcaffe2_nvrtc.so from /usr/local/lib/python3.10/dist-packages/torch/lib/libcaffe2_nvrtc.so
+[process-2348695][root][2025-11-19 16:49:15.678][hippo_helper.py:HippoHelper():15][INFO] get container_ip from socket:127.0.0.1
+[process-2348695][root][2025-11-19 16:49:15.682][fuser.py:_check_valid():97][WARNING] fuse is not valid: connet http://0:28006 error
+[process-2348695][root][2025-11-19 16:49:15.683][fuser.py:fetch_remote_file_to_local():283][INFO] Local path  use directly.
+[process-2348695][root][2025-11-19 16:49:15.684][py_config_modules.py:update_from_env():877][INFO] [server_config]
+frontend_server_count: 4
+start_port: 8088
+timeout_keep_alive: 5
+frontend_server_id: 0
+rank_id: 0
+
+[profiling_debug_config]
+trace_memory: 0
+trace_malloc_stack: 0
+enable_device_perf: 0
+ft_core_dump_on_exception: 0
+ft_alog_conf_path: 
+log_level: INFO
+gen_timeline_sync: 0
+torch_cuda_profiler_dir
+log_path: logs
+log_file_backup_count: 16
+nccl_debug_file: 
+debug_load_server: 0
+hack_layer_num: 0
+debug_start_fake_process: 0
+dg_print_reg_reuse: 0
+qwen_agent_debug0
+disable_dpc_random0
+
+
+[model_config]
+extra_data_path: 
+local_extra_data_path: None
+tokenizer_path: 
+act_type: FP16
+use_float32: False
+original_checkpoint_path: None
+mla_ops_type: AUTO
+parallel_batch: False
+ft_plugin_path: None
+weight_type: None
+task_type: None
+model_type: 
+checkpoint_path: 
+oss_endpoint: 
+ptuning_path: None
+openai_api_key: EMPTY
+dashscope_api_key: EMPTY
+dashscope_http_url: None
+dashscope_websocket_url: None
+
+[py_speculative_execution_config]
+gen_num_per_circle: 5
+sp_quantization: None
+sp_checkpoint_path: None
+sp_type: None
+sp_model_type: Nonesp_kv_cache_dtype: None
+sp_checkpoint_path: None
+
+[lora_config]
+lora_info: {}
+merge_lora: True
+
+
+[load_config]
+phy2log_path: 
+converter_num_per_gpu: 4
+tokenizers_parallelism: False
+load_ckpt_num_process: 0
+
+[render_config]
+model_template_type: None
+default_chat_template_key: default
+default_tool_use_template_key: tool_use
+llava_chat_template: 
+
+[gang_config]
+fake_gang_env: False
+gang_annocation_path: /etc/podinfo/annotations
+gang_config_string: None
+zone_name: 
+distribute_config_file: 
+dist_barrier_timeout: 45
+gang_sleep_time: 10
+gang_timeout_min: 30
+json_gang_parts: None
+lead_address: None
+
+
+[vit_config]
+vit_separation: 0
+vit_trt: 0
+trt_cache_enabled: 0
+trt_cache_path: None
+download_headers: 
+mm_cache_item_num: 10
+url_cache_item_num: 100
+use_igraph_cache: True
+igraph_search_dom: com.taobao.search.igraph.common
+igraph_vipserver: 0
+igraph_table_name: 
+igraph_default_key: None
+
+[generate_env_config]
+think_end_tag: </think>
+
+
+think_end_token_id: -1
+think_mode: 0
+force_stop_words: False
+stop_words_list: None
+stop_words_str: None
+think_start_tag: <think>
+
+generation_config_path: None
+
+[quantization_config]
+int8_mode: 0
+quantization: 
+
+[py_eplb_config]
+eplb_mode: NONE
+eplb_update_time: 5000
+redundant_expert: 0
+hack_ep_single_entry: 0
+balance_method: mix
+eplb_force_repack: 0
+eplb_stats_window_size: 10
+
+[py_kv_cache_config]
+int8_kv_cache: 0
+fp8_kv_cache: 0
+kv_cache_dtype: auto
+kv_cache_mem_mb: -1
+seq_size_per_block: -1
+test_block_num: 0
+use_block_cache: None
+blockwise_use_fp8_kv_cache: 0
+reuse_cache: False
+
+[py_device_resource_config]
+reserver_runtime_mem_mb: 1024
+specify_gpu_arch: 
+acext_gemm_config_dir: None
+device_reserve_memory_bytes: 0
+
+[sparse_config]
+sparse_config_file: None
+
+[engine_config]
+warm_up: 1
+warm_up_with_loss: 0
+max_seq_len: 0
+
+[embedding_config]
+embedding_model: 0
+extra_input_in_mm_embedding: 
+
+[worker_config]
+worker_info_port_num: 7
+
+[role_config]
+role_type: PDFUSION
+
+[pd_separation_config]
+prefill_retry_times: 0
+prefill_retry_timeout_ms: 20
+prefill_max_wait_timeout_ms: 600000
+decode_retry_times: 100
+decode_retry_timeout_ms: 100
+decode_polling_kv_cache_step_ms: 30
+decode_entrance: 0
+rdma_connect_retry_times: 0
+load_cache_timeout_ms: 5000
+load_balance_policy_name: RR
+sync_status_interval_ms: 50
+
+[parallelism_distributed_config]
+tp_size: 1
+ep_size: 1
+dp_size: 1
+world_size: 1
+world_rank: 0
+pp_size: 1
+local_world_size: 1
+ffn_sp_size1
+
+[model_specific_config]
+max_lora_model_size: -1
+load_python_model:1
+
+
+[fmha_config]
+enable_fmha: 1
+enable_trt_fmha: 1
+enable_paged_trt_fmha: 1
+enable_open_source_fmha: 1
+enable_paged_open_source_fmha: 1
+enable_trtv1_fmha: 1
+fmha_perf_instrument: 0
+fmha_show_params: 0
+disable_flash_infer: 0
+enable_xqa: 1
+
+
+[misc_config]
+load_balance: 0
+step_records_time_range: 60000000
+step_records_max_size: 1000
+disable_pdl1
+aux_string: 
+
+
+[concurrency_config]
+concurrency_with_block: 0
+concurrency_limit: 32
+
+[jit_config]
+remote_jit_dir: 
+
+[py_hw_kernel_config]
+deep_gemm_num_sm: -1
+arm_gemm_use_kai: False
+enable_stable_scatter_add: False
+enable_multi_block_mode: True
+ft_disable_custom_ar: True
+rocm_hipblaslt_config: gemm_config.csv
+enable_cuda_graph: False
+enable_cuda_graph_debug_mode: False
+use_aiter_pa: False
+enable_native_cuda_graph: False
+num_native_cuda_graph: 200
+
+
+successfully set NCCL_DEBUG_FILE path to logs/nccl.log
+successfully init logger config {'version': 1, 'disable_existing_loggers': False, 'formatters': {'default': {'format': '[%(name)s][%(asctime)s.%(msecs)03d][%(process)d][%(threadName)s][%(pathname)s:%(funcName)s():%(lineno)s][%(levelname)s] %(message)s', 'datefmt': '%Y-%m-%d %H:%M:%S'}}, 'handlers': {'file_handler': {'formatter': 'default', 'class': 'logging.handlers.RotatingFileHandler', 'filename': 'logs/main_0.log', 'maxBytes': 268435456, 'backupCount': 20}, 'route_file_handler': {'formatter': 'default', 'class': 'logging.handlers.RotatingFileHandler', 'filename': 'logs/route.log', 'maxBytes': 268435456, 'backupCount': 20}}, 'loggers': {'': {'handlers': ['file_handler'], 'level': 'INFO', 'propagate': True}, 'route_logger': {'handlers': ['route_file_handler'], 'level': 'INFO', 'propagate': False}}}
+################### CALL device_type=DeviceType.ROCm
+INFO 11-19 16:49:22 [__init__.py:245] Automatically detected platform rocm.
+/usr/local/lib/python3.10/dist-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+Please install pyav to use video processing functions.
+[process-2348791][root][2025-11-19 16:49:42.676][__init__.py:<module>():58][INFO] failed to load libth_transformer_config.so from libs, try use another path
+[process-2348791][root][2025-11-19 16:49:42.676][__init__.py:<module>():64][INFO] failed to find libth_transformer_config.so in /home/client/ali/tracebak/rtp-llm-bak-dtk25042/rtp_llm/../bazel-bin
+[process-2348791][root][2025-11-19 16:49:42.676][__init__.py:<module>():68][INFO] so path: /home/client/ali/tracebak/rtp-llm-bak-dtk25042/rtp_llm/../bazel-bin
+[process-2348791][root][2025-11-19 16:49:42.676][__init__.py:<module>():91][INFO] torch path: ['/usr/local/lib/python3.10/dist-packages/torch']
+[process-2348791][root][2025-11-19 16:49:42.677][__init__.py:<module>():97][INFO] loaded libcaffe2_nvrtc.so from /usr/local/lib/python3.10/dist-packages/torch/lib/libcaffe2_nvrtc.so
+[process-2348791][root][2025-11-19 16:49:42.762][hippo_helper.py:HippoHelper():15][INFO] get container_ip from socket:127.0.0.1
+[process-2348791][root][2025-11-19 16:49:42.764][fuser.py:_check_valid():97][WARNING] fuse is not valid: connet http://0:28006 error
+[process-2348791][root][2025-11-19 16:49:42.765][fuser.py:fetch_remote_file_to_local():283][INFO] Local path  use directly.
+[process-2348791][root][2025-11-19 16:49:42.765][py_config_modules.py:update_from_env():877][INFO] [server_config]
+frontend_server_count: 4
+start_port: 8008
+timeout_keep_alive: 5
+frontend_server_id: 0
+rank_id: 0
+
+[profiling_debug_config]
+trace_memory: 0
+trace_malloc_stack: 0
+enable_device_perf: 0
+ft_core_dump_on_exception: 0
+ft_alog_conf_path: /home/client/ali/tracebak/rtp-llm-bak-dtk25042/rtp_llm/config/alog.conf
+log_level: INFO
+gen_timeline_sync: 0
+torch_cuda_profiler_dir
+log_path: logs
+log_file_backup_count: 16
+nccl_debug_file: logs/nccl.log
+debug_load_server: 0
+hack_layer_num: 0
+debug_start_fake_process: 0
+dg_print_reg_reuse: 0
+qwen_agent_debug0
+disable_dpc_random0
+
+
+[model_config]
+extra_data_path: 
+local_extra_data_path: None
+tokenizer_path: /models/qwen3/Qwen3-4B
+act_type: FP16
+use_float32: False
+original_checkpoint_path: None
+mla_ops_type: AUTO
+parallel_batch: False
+ft_plugin_path: None
+weight_type: None
+task_type: None
+model_type: qwen_3
+checkpoint_path: /models/qwen3/Qwen3-4B
+oss_endpoint: 
+ptuning_path: None
+openai_api_key: EMPTY
+dashscope_api_key: EMPTY
+dashscope_http_url: None
+dashscope_websocket_url: None
+
+[py_speculative_execution_config]
+gen_num_per_circle: 1
+sp_quantization: None
+sp_checkpoint_path: None
+sp_type: 
+sp_model_type: sp_kv_cache_dtype: None
+sp_checkpoint_path: None
+
+[lora_config]
+lora_info: {}
+merge_lora: True
+
+
+[load_config]
+phy2log_path: 
+converter_num_per_gpu: 4
+tokenizers_parallelism: False
+load_ckpt_num_process: 0
+
+[render_config]
+model_template_type: None
+default_chat_template_key: default
+default_tool_use_template_key: tool_use
+llava_chat_template: 
+
+[gang_config]
+fake_gang_env: False
+gang_annocation_path: /etc/podinfo/annotations
+gang_config_string: None
+zone_name: 
+distribute_config_file: 
+dist_barrier_timeout: 45
+gang_sleep_time: 10
+gang_timeout_min: 30
+json_gang_parts: None
+lead_address: None
+
+
+[vit_config]
+vit_separation: 0
+vit_trt: 0
+trt_cache_enabled: 0
+trt_cache_path: /home/client/ali/tracebak/rtp-llm-bak-dtk25042/trt_cache
+download_headers: 
+mm_cache_item_num: 10
+url_cache_item_num: 100
+use_igraph_cache: True
+igraph_search_dom: com.taobao.search.igraph.common
+igraph_vipserver: 0
+igraph_table_name: 
+igraph_default_key: None
+
+[generate_env_config]
+think_end_tag: </think>
+
+
+think_end_token_id: -1
+think_mode: 0
+force_stop_words: False
+stop_words_list: None
+stop_words_str: None
+think_start_tag: <think>\n
+generation_config_path: None
+
+[quantization_config]
+int8_mode: 0
+quantization: 
+
+[py_eplb_config]
+eplb_mode: NONE
+eplb_update_time: 5000
+redundant_expert: 0
+hack_ep_single_entry: 0
+balance_method: mix
+eplb_force_repack: 0
+eplb_stats_window_size: 10
+
+[py_kv_cache_config]
+int8_kv_cache: 0
+fp8_kv_cache: 0
+kv_cache_dtype: auto
+kv_cache_mem_mb: -1
+seq_size_per_block: 16
+test_block_num: 0
+use_block_cache: None
+blockwise_use_fp8_kv_cache: 0
+reuse_cache: False
+
+[py_device_resource_config]
+reserver_runtime_mem_mb: 1024
+specify_gpu_arch: 
+acext_gemm_config_dir: None
+device_reserve_memory_bytes: 0
+
+[sparse_config]
+sparse_config_file: None
+
+[engine_config]
+warm_up: 1
+warm_up_with_loss: 0
+max_seq_len: 0
+
+[embedding_config]
+embedding_model: 0
+extra_input_in_mm_embedding: 
+
+[worker_config]
+worker_info_port_num: 7
+
+[role_config]
+role_type: PDFUSION
+
+[pd_separation_config]
+prefill_retry_times: 0
+prefill_retry_timeout_ms: 0
+prefill_max_wait_timeout_ms: 600000
+decode_retry_times: 100
+decode_retry_timeout_ms: 100
+decode_polling_kv_cache_step_ms: 30
+decode_entrance: 0
+rdma_connect_retry_times: 0
+load_cache_timeout_ms: 5000
+load_balance_policy_name: RR
+sync_status_interval_ms: 50
+
+[parallelism_distributed_config]
+tp_size: 1
+ep_size: 1
+dp_size: 1
+world_size: 1
+world_rank: 0
+pp_size: 1
+local_world_size: 1
+ffn_sp_size1
+
+[model_specific_config]
+max_lora_model_size: -1
+load_python_model:1
+
+
+[fmha_config]
+enable_fmha: 1
+enable_trt_fmha: 1
+enable_paged_trt_fmha: 1
+enable_open_source_fmha: 1
+enable_paged_open_source_fmha: 1
+enable_trtv1_fmha: 1
+fmha_perf_instrument: 0
+fmha_show_params: 0
+disable_flash_infer: 0
+enable_xqa: 1
+
+
+[misc_config]
+load_balance: 0
+step_records_time_range: 60000000
+step_records_max_size: 1000
+disable_pdl1
+aux_string: 
+
+
+[concurrency_config]
+concurrency_with_block: 0
+concurrency_limit: 32
+
+[jit_config]
+remote_jit_dir: 
+
+[py_hw_kernel_config]
+deep_gemm_num_sm: -1
+arm_gemm_use_kai: False
+enable_stable_scatter_add: False
+enable_multi_block_mode: True
+ft_disable_custom_ar: False
+rocm_hipblaslt_config: gemm_config.csv
+enable_cuda_graph: False
+enable_cuda_graph_debug_mode: False
+use_aiter_pa: False
+enable_native_cuda_graph: False
+num_native_cuda_graph: 200
+
+
+successfully init logger config {'version': 1, 'disable_existing_loggers': False, 'formatters': {'default': {'format': '[%(name)s][%(asctime)s.%(msecs)03d][%(process)d][%(threadName)s][%(pathname)s:%(funcName)s():%(lineno)s][%(levelname)s] %(message)s', 'datefmt': '%Y-%m-%d %H:%M:%S'}}, 'handlers': {'file_handler': {'formatter': 'default', 'class': 'logging.handlers.RotatingFileHandler', 'filename': 'logs/main_0.log', 'maxBytes': 268435456, 'backupCount': 20}, 'route_file_handler': {'formatter': 'default', 'class': 'logging.handlers.RotatingFileHandler', 'filename': 'logs/route.log', 'maxBytes': 268435456, 'backupCount': 20}}, 'loggers': {'': {'handlers': ['file_handler'], 'level': 'INFO', 'propagate': True}, 'route_logger': {'handlers': ['route_file_handler'], 'level': 'INFO', 'propagate': False}}}
+################### CALL device_type=DeviceType.ROCm
+INFO 11-19 16:49:49 [__init__.py:245] Automatically detected platform rocm.
+/usr/local/lib/python3.10/dist-packages/timm/models/layers/__init__.py:48: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+Please install pyav to use video processing functions.
+################## class Embedding(nn.Module) 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+################ class FusedSiluActDenseMLP rocm 
+
+######################## class lightop RMSNorm 
+
+######################## class lightop RMSNorm 
+
+######## call class CausalAttention(nn.Module) 
+
+--------------------else---------------------------
+
+--------------------else---------------------------
+
+initLogger log_file_path: /home/client/ali/tracebak/rtp-llm-bak-dtk25042/rtp_llm/config/alog.conf
+[BLAS] Gemm config not find: gemm_config.csv 
+#################### NormalExecutor::NormalExecutor( 
+###############call GptModelOutputs PyWrappedModel::forward(const GptModelInputs& inputs 
+################ PyWrappedModel::buildBertEmbeddingInputs(const GptModelInputs& inputs) 

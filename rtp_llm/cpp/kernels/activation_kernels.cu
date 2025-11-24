@@ -192,7 +192,7 @@ struct IdentityActivation {
 
 // clang-format off
 template<template<typename T> class Activation, typename T, typename BT>
-__global__ void generic_activation(T*                      up_out,
+__global__ __launch_bounds__(1024) void generic_activation(T*                      up_out,
                                    const BT*  __restrict   bias,
                                    const T*   __restrict   gate,
                                    const BT*  __restrict   gate_bias,
@@ -445,7 +445,7 @@ invokeAddBiasTanh(__nv_bfloat16* out, const __nv_bfloat16* bias, const int m, co
 #endif
 
 template<typename T2, int N>
-__global__ void addBiasGeluV2(T2* out,
+__global__ __launch_bounds__(1024) void addBiasGeluV2(T2* out,
                               const T2* __restrict bias,
                               const int* ia3_tasks,
                               const T2*  ia3_weights,
@@ -472,7 +472,7 @@ __global__ void addBiasGeluV2(T2* out,
 }
 
 template<typename T2, int N, int ELEMENT_PER_ROUND>
-__global__ void addBiasGeluV3(T2* out,
+__global__ __launch_bounds__(1024) void addBiasGeluV3(T2* out,
                               const T2* __restrict bias,
                               const int* ia3_tasks,
                               const T2*  ia3_weights,

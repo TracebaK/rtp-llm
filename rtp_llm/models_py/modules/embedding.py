@@ -19,6 +19,7 @@ class EmbeddingTorch(nn.Module):
 class Embedding(nn.Module):
     def __init__(self, config: GptInitModelParameters, weight: torch.Tensor):
         super().__init__()
+        print(f"################## class Embedding(nn.Module) \n")
         self.weight = weight
         self.config = config
 
@@ -44,6 +45,7 @@ class Embedding(nn.Module):
 class EmbeddingBert(nn.Module):
     def __init__(self, config: GptInitModelParameters, weight: torch.Tensor):
         super().__init__()
+        print(f"################ class EmbeddingBert(nn.Module) \n")
         self.weight = weight
         self.config = config
 
@@ -62,6 +64,7 @@ class EmbeddingBert(nn.Module):
             (tokens, hidden_size), dtype=self.weight.dtype, device=input.device
         )
 
+        print(f"################### call rtp_llm_ops.embedding_bert")
         rtp_llm_ops.embedding_bert(
             output,
             input,

@@ -71,6 +71,8 @@ void PyWrappedModel::setupKVCacheForAttentionInputs(torch_ext::PyAttentionInputs
 
 // Helper function to build BertEmbeddingInputs from GptModelInputs
 torch_ext::BertEmbeddingInputs PyWrappedModel::buildBertEmbeddingInputs(const GptModelInputs& inputs) {
+    printf("################ PyWrappedModel::buildBertEmbeddingInputs(const GptModelInputs& inputs) \n");
+    inputs.debugString();
     torch_ext::BertEmbeddingInputs bert_embedding_inputs;
 
     // Convert combo_position_ids from Buffer to torch::Tensor
@@ -145,6 +147,7 @@ std::optional<PyCacheStoreInputs> PyWrappedModel::prepareWriteCacheParams(const 
 
 GptModelOutputs PyWrappedModel::forwardMicroBatched(const GptModelInputs& inputs) {
     py::object py_forward_method = py_model_.attr("forward_micro_batch");
+    printf("###############call GptModelOutputs PyWrappedModel::forwardMicroBatched(const GptModelInputs& inputs) \n");
     if (device_props_.ffn_as_service) {
         py::object py_outputs_obj = py_forward_method(std::vector<PyModelInputs>{});
         return GptModelOutputs({nullptr, nullptr, nullptr, nullptr, nullptr});
@@ -210,9 +213,14 @@ GptModelOutputs PyWrappedModel::forwardMicroBatched(const GptModelInputs& inputs
 }
 
 GptModelOutputs PyWrappedModel::forward(const GptModelInputs& inputs) {
+    printf("###############call GptModelOutputs PyWrappedModel::forward(const GptModelInputs& inputs \n");
 
     py::gil_scoped_acquire gil;
-    printBufferDataDebug(*inputs.combo_position_ids, "forward inputs.combo_position_ids");
+    if (inputs.combo_position_ids) {
+	    printBufferDataDebug(*inputs.combo_position_ids, "forward inputs.combo_position_ids");
+    } else {
+	    RTP_LLM_LOG_WARNING("limengmeng inputs.combo_position_ids is nullptr, skipping debug print.");
+    }
     try {
         RTP_LLM_LOG_DEBUG("Calling forward method on Python object instance.");
 

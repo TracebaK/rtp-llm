@@ -98,23 +98,23 @@ AllReduceOutput ROCmDevice::allReduce(const AllReduceParams& params) {
     const auto nccl_op        = static_cast<ncclRedOp_t>(params.op);
     const auto nccl_data_type = getNcclDataType(buffer->type());
 
-    bool use_custom_ar =
-        !params.dest
-        && (params.mode == ParallelMode::TP
-            || (params.mode == ParallelMode::FFN_TP && tp_nccl_param_ == ffn_tp_nccl_param_))
-        && custom_allreduce_comm_ && nccl_op == ncclSum
-        && custom_allreduce_comm_->checkAllReduceAvailable(buffer->size(), buffer->type(), nccl_param.world_size_);
+    // bool use_custom_ar =
+    //     !params.dest
+    //     && (params.mode == ParallelMode::TP
+    //         || (params.mode == ParallelMode::FFN_TP && tp_nccl_param_ == ffn_tp_nccl_param_))
+    //     && custom_allreduce_comm_ && nccl_op == ncclSum
+    //     && custom_allreduce_comm_->checkAllReduceAvailable(buffer->size(), buffer->type(), nccl_param.world_size_);
 
     // if custom allreduce fails, fallback to the default ncclAllReduce
     // dp tmp not support custom_allreduce_comm
-    if (use_custom_ar) {
-        auto custom_ar_res_buf =
-            allocateBuffer({buffer->type(), buffer->shape(), AllocationType::DEVICE}, {"custom_ar_buf"});
-        torch::Tensor input_tensor  = Buffer2torchTensor(*buffer, false);
-        torch::Tensor output_tensor = Buffer2torchTensor(*custom_ar_res_buf, false);
-        custom_allreduce_comm_->allReduce(input_tensor, output_tensor);
-        return AllReduceOutput{custom_ar_res_buf};
-    }
+    // if (use_custom_ar) {
+    //     auto custom_ar_res_buf =
+    //         allocateBuffer({buffer->type(), buffer->shape(), AllocationType::DEVICE}, {"custom_ar_buf"});
+    //     torch::Tensor input_tensor  = Buffer2torchTensor(*buffer, false);
+    //     torch::Tensor output_tensor = Buffer2torchTensor(*custom_ar_res_buf, false);
+    //     custom_allreduce_comm_->allReduce(input_tensor, output_tensor);
+    //     return AllReduceOutput{custom_ar_res_buf};
+    // }
 
     RUNTIME_ASSERT_OP_ARG((int32_t)params.op < ncclRedOp_t::ncclNumOps, "Invalid reduce op: %d", int(params.op));
 

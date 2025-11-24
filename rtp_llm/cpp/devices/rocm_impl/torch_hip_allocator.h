@@ -24,6 +24,11 @@ public:
 
     void init(int device_count) override {}
 
+    // 在 torch_hip_allocator.h 的 public 区域
+    c10::hip::HIPCachingAllocator::ShareableHandle shareIpcHandle(void* ptr) override {
+        TORCH_CHECK(false, "HIP IPC handle sharing is not supported by TorchHipAllocator");
+    }
+
     bool initialized() override {
         return allocator_;
     }

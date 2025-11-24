@@ -16,7 +16,7 @@
 #include "rtp_llm/cpp/rocm/cuda_shims.h"
 #include "rtp_llm/cpp/rocm/hip_host_utils.h"
 #include "rtp_llm/cpp/core/torch_utils/BufferTorchUtils.h"
-#include "rtp_llm/cpp/devices/rocm_impl/aiterPA.h"
+// #include "rtp_llm/cpp/devices/rocm_impl/aiterPA.h"
 #include "rtp_llm/models_py/bindings/rocm/PagedAttn.h"
 #include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/devices/rocm_impl/ROCmDevice.h"

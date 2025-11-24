@@ -83,7 +83,7 @@ void half_to_float(const void* input, void* output, const int num_elements) {
 }
 
 template<typename T, typename T_IN, int ITEMS_PER_THREAD>
-__global__ void softmax_kernel(T*           attn_score,
+__global__ __launch_bounds__(1024) void softmax_kernel(T*           attn_score,
                                const T_IN*  qk,
                                const T*     attn_mask,
                                const float* linear_bias_slopes,
@@ -161,7 +161,7 @@ __global__ void softmax_kernel(T*           attn_score,
 }
 
 template<typename T, int ITEMS_PER_THREAD>
-__global__ void softmax_kernel_h2(T*           attn_score,
+__global__ __launch_bounds__(1024) void softmax_kernel_h2(T*           attn_score,
                                   const T*     qk_buf,
                                   const T*     attn_mask,
                                   const float* linear_bias_slopes,
@@ -260,7 +260,7 @@ __global__ void softmax_kernel_h2(T*           attn_score,
 }
 
 template<typename T, int K_ITEMS_PER_THREAD, int Q_ITEMS_PER_THREAD>
-__global__ void softmax_kernel_h2_v2(T*           attn_score,
+__global__ __launch_bounds__(1024) void softmax_kernel_h2_v2(T*           attn_score,
                                      const T*     qk_buf,
                                      const T*     attn_mask,
                                      const float* linear_bias_slopes,
@@ -571,7 +571,7 @@ void invokeMaskedSoftmax(MaskedSoftmaxParam<__nv_bfloat16, __nv_bfloat16>& param
 #undef LAUNCH_MAKSED_SOFTMAX_
 
 template<typename T>
-__global__ void transpose(const T*     src,
+__global__ __launch_bounds__(1024) void transpose(const T*     src,
                           T*           dst,
                           const int    batch_size,
                           const int    seq_len,
@@ -601,7 +601,7 @@ __global__ void transpose(const T*     src,
 }
 
 template<>
-__global__ void transpose(const float* src,
+__global__ __launch_bounds__(1024) void transpose(const float* src,
                           float*       dst,
                           const int    batch_size,
                           const int    seq_len,
@@ -697,7 +697,7 @@ INSTANTIATETRANSPOSEQKV(__nv_bfloat16);
 #undef INSTANTIATETRANSPOSEQKV
 
 template<typename T>
-__global__ void transpose_remove_padding(const T*     src,
+__global__ __launch_bounds__(1024) void transpose_remove_padding(const T*     src,
                                          T*           dst,
                                          const int    batch_size,
                                          const int    seq_len,
@@ -863,7 +863,7 @@ __device__ float convert_to_float(int val) {
 }
 
 template<typename T>
-__global__ void debug_kernel2(T* data, int start_col, int m, int n, int row_len, int info_id) {
+__global__ __launch_bounds__(1024) void debug_kernel2(T* data, int start_col, int m, int n, int row_len, int info_id) {
     if (blockIdx.x == 0 && threadIdx.x == 0) {
         printf("debug_kernel2 start: %d\n", info_id);
         for (int i = 0; i < m; i++) {
@@ -897,7 +897,7 @@ INSTANTIATEDEBUGKERNEL2(__nv_bfloat16);
 // Bandwidth-bound kernel by reading cos/sin coefficients from global memory (pre-computed and saved as weights).
 
 template<typename T, typename Tcache, bool PREFIX_PROMPT, bool USE_PAGED_FMHA, RopeStyle ROPE_STYLE>
-__global__ void add_fusedQKV_bias_transpose_kernel(T*                            q_no_transpose_buf,
+__global__ __launch_bounds__(1024) void add_fusedQKV_bias_transpose_kernel(T*                            q_no_transpose_buf,
                                                    T*                            q_buf,
                                                    T*                            k_buf,
                                                    T*                            v_buf,
@@ -1214,7 +1214,7 @@ void invokeAddFusedQKVBiasTranspose(T*                             q_no_transpos
 }
 
 template<typename T, typename Tcache, RopeStyle ROPE_STYLE>
-__global__ void decode_add_fusedQKV_bias_transpose_with_rope_cache_kernel(T*           q_buf,
+__global__ __launch_bounds__(1024) void decode_add_fusedQKV_bias_transpose_with_rope_cache_kernel(T*           q_buf,
                                                                           T*           k_buf,
                                                                           T*           v_buf,
                                                                           KVBlockArray kv_block_array,
@@ -1414,7 +1414,7 @@ __global__ void decode_add_fusedQKV_bias_transpose_with_rope_cache_kernel(T*    
 }
 
 template<typename T, typename Tcache, RopeStyle ROPE_STYLE>
-__global__ void decode_add_fusedQKV_bias_transpose_kernel(T*           q_buf,
+__global__ __launch_bounds__(1024) void decode_add_fusedQKV_bias_transpose_kernel(T*           q_buf,
                                                           T*           k_buf,
                                                           T*           v_buf,
                                                           KVBlockArray kv_block_array,
@@ -1619,7 +1619,7 @@ template<typename T,
          int       HEAD_Q_BLOCK_NUM,
          int       HEAD_K_BLOCK_NUM,
          int       HEAD_V_BLOCK_NUM>
-__global__ void decode_add_fusedQKV_bias_transpose_non_int8_with_rope_cache_kernel(T*           q_buf,
+__global__ __launch_bounds__(1024) void decode_add_fusedQKV_bias_transpose_non_int8_with_rope_cache_kernel(T*           q_buf,
                                                                                    T*           k_buf,
                                                                                    T*           v_buf,
                                                                                    KVBlockArray kv_block_array,
@@ -1934,7 +1934,7 @@ template<typename T,
          int       HEAD_Q_BLOCK_NUM,
          int       HEAD_K_BLOCK_NUM,
          int       HEAD_V_BLOCK_NUM>
-__global__ void decode_add_fusedQKV_bias_transpose_non_int8_kernel(T*           q_buf,
+__global__ __launch_bounds__(1024) void decode_add_fusedQKV_bias_transpose_non_int8_kernel(T*           q_buf,
                                                                    T*           k_buf,
                                                                    T*           v_buf,
                                                                    KVBlockArray kv_block_array,
@@ -2396,7 +2396,7 @@ void invokeDecodeAddFusedQKVBiasTranspose(T*               q_buf,
 
 #if USING_ROCM
 template<typename T, typename Tcache, bool PREFIX_PROMPT, bool USE_PAGED_FMHA, RopeStyle ROPE_STYLE>
-__global__ void add_fusedQKV_bias_transpose_prefill_kernel(T*                            q_buf,
+__global__ __launch_bounds__(1024) void add_fusedQKV_bias_transpose_prefill_kernel(T*                            q_buf,
                                                            T*                            k_buf,
                                                            T*                            v_buf,
                                                            PrefixPromptBatchWeightsParam param,
@@ -2693,7 +2693,7 @@ void invokeAddFusedQKVBiasTransposePrefill(T*                             q_buf,
 }
 
 template<typename T, typename Tcache, bool PREFIX_PROMPT, bool USE_PAGED_FMHA, RopeStyle ROPE_STYLE>
-__global__ void add_fusedQKV_bias_transpose_decode_kernel(T*                            q_buf,
+__global__ __launch_bounds__(1024) void add_fusedQKV_bias_transpose_decode_kernel(T*                            q_buf,
                                                           T*                            k_buf,
                                                           T*                            v_buf,
                                                           PrefixPromptBatchWeightsParam param,
@@ -2894,7 +2894,7 @@ void invokeAddFusedQKVBiasTransposeDecode(T*                             q_buf,
 #endif
 
 template<typename T, typename Tcache>
-__global__ void load_prefix_KVCache_kernel(T*                            q_buf,
+__global__ __launch_bounds__(1024) void load_prefix_KVCache_kernel(T*                            q_buf,
                                            T*                            k_buf,
                                            T*                            v_buf,
                                            PrefixPromptBatchWeightsParam param,
@@ -2956,7 +2956,7 @@ __global__ void load_prefix_KVCache_kernel(T*                            q_buf,
 
 #if USING_ROCM
 template<typename T>
-__global__ void gather_sequences_kernel_combined_v2(T*         output_q,
+__global__ __launch_bounds__(1024) void gather_sequences_kernel_combined_v2(T*         output_q,
                                                     T*         output_k,
                                                     T*         output_v,
                                                     const T*   input_q,
@@ -3047,7 +3047,7 @@ __global__ void gather_sequences_kernel_combined_v2(T*         output_q,
 }
 
 template<typename T, typename Tcache>
-__global__ void load_prefix_KVCache_kernel_aiter(T*                            q_buf,
+__global__ __launch_bounds__(1024) void load_prefix_KVCache_kernel_aiter(T*                            q_buf,
                                                  T*                            k_buf,
                                                  T*                            v_buf,
                                                  PrefixPromptBatchWeightsParam param,
@@ -3209,7 +3209,7 @@ void invokeLoadPrefixKVCacheAiter(T*                             q_buf,
 #endif
 
 template<typename T>
-__global__ void SplitQKV_kernel(T*        q_buf,
+__global__ __launch_bounds__(1024) void SplitQKV_kernel(T*        q_buf,
                                 T*        k_buf,
                                 T*        v_buf,
                                 T*        QKV,

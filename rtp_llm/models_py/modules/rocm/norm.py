@@ -2,13 +2,13 @@ from typing import Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from aiter import layernorm2d_fwd as layernorm2d_fwd
-from aiter import rmsnorm2d_fwd as rms_norm
+#from aiter import layernorm2d_fwd as layernorm2d_fwd
+#from aiter import rmsnorm2d_fwd as rms_norm
 from libth_transformer import rtp_llm_ops
 from torch import nn
 
 from rtp_llm.models_py.modules.norm import BaseNorm
-
+from lightop import op
 
 class BaseLayerNorm(torch.nn.Module):
     def __init__(self, weight: torch.Tensor, beta: torch.Tensor, eps: float = 1e-6):
@@ -48,13 +48,43 @@ class LayerNorm(BaseLayerNorm):
         )
         return output
 
+def rmsnorm_forward_torch(hidden_states,weight,eps):
+    input_dtype = hidden_states.dtype
+    variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
+    hidden_states = hidden_states * torch.rsqrt(variance + eps)
+    if weight is not None:
+        if weight.dtype in [torch.float16, torch.bfloat16]:
+            hidden_states = hidden_states * weight.to(torch.float32)
+            hidden_states = hidden_states.to(weight.dtype)
+        else:
+            hidden_states = hidden_states * weight
+    else:
+        hidden_states = hidden_states.to(input_dtype)
+    return hidden_states
 
-class RMSNorm(BaseNorm):
-    def __init__(self, weight: torch.Tensor, eps: float = 1e-6):
-        super().__init__(weight, eps)
+class RMSNorm(torch.nn.Module):
+    def __init__(self, weight: torch.Tensor, eps: float = 1e-5, training: bool = False):
+        super(RMSNorm, self).__init__()
+        self.eps = eps
+        self.weight = weight
+        self.training = training
+        print(f"######################## class lightop RMSNorm \n")
+        self.rmsnorm_compile=torch.compile(rmsnorm_forward_torch)
 
-    def forward(self, hidden_states: torch.Tensor):
-        return rms_norm(hidden_states, self.weight.data, self.variance_epsilon)
+    def forward(self, hidden_states):
+        if hidden_states.dtype == torch.bfloat16 and self.weight.numel()==128 and self.training==False:
+            return self.rmsnorm_compile(hidden_states, self.weight, self.eps)
+        return op.rmsnorm_forward_autograd(hidden_states, self.weight, self.eps, self.training)
+
+    def extra_repr(self):
+        return f'eps={round(self.eps,5):0.5f}'
+
+#class RMSNorm(BaseNorm):
+#    def __init__(self, weight: torch.Tensor, eps: float = 1e-6):
+#        super().__init__(weight, eps)
+#
+#    def forward(self, hidden_states: torch.Tensor):
+#        return rms_norm(hidden_states, self.weight.data, self.variance_epsilon)
 
 
 class BaseAddBiasResLayerNorm(torch.nn.Module):
@@ -98,12 +128,13 @@ class AddBiasResLayerNorm(BaseAddBiasResLayerNorm):
         bias: torch.Tensor,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         if hidden_states.shape[0] > 32 and hidden_states.shape[1] <= 768:
-            return layernorm2d_fwd(
+            #return layernorm2d_fwd(
+            return op.layernorm_forward_autograd(
                 hidden_states,
-                self.weight.data,
+                self.weight,
                 bias,
                 self.variance_epsilon,
-                x_bias=None,
+                False,
             )
         else:
             rtp_llm_ops.fused_add_layernorm(

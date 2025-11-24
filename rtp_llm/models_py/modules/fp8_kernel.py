@@ -30,6 +30,7 @@ def create_per_token_group_quant_fp8_output_scale(
     scale_tma_aligned: bool,
     scale_ue8m0: bool,
 ):
+    print(f"############# call def create_per_token_group_quant_fp8_output_scale \n")
     if scale_ue8m0:
         assert column_major_scales and scale_tma_aligned
         x_q_mn, x_q_k = x_shape
@@ -78,7 +79,7 @@ def sgl_per_token_group_quant_fp8(
         x.shape[-1] % group_size == 0
     ), "the last dimension of `x` cannot be divisible by `group_size`"
     assert x.is_contiguous(), "`x` is not contiguous"
-
+    print(f"############## call def sgl_per_token_group_quant_fp8 \n")
     # Define fp8 dtype and constants
     fp8_dtype = torch.float8_e4m3fn
     finfo = torch.finfo(fp8_dtype)
@@ -112,7 +113,7 @@ def scaled_fp8_per_tensor_quant(
 
     shape: Union[Tuple[int, int], torch.Size] = input.shape
     out_dtype: torch.dtype = torch.float8_e4m3fn
-
+    print(f"########## call def sgl_per_token_group_quant_fp8 \n")
     if output is None:
         output = torch.empty(shape, device=input.device, dtype=out_dtype)
     else:
@@ -135,6 +136,7 @@ def scaled_fp8_per_token_quant(
     output: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     scale = torch.zeros(input.size(0), device=input.device, dtype=torch.float32)
+    print(f"#############call def scaled_fp8_per_token_quant")
     if output is not None:
         assert output.dtype == torch.float8_e4m3fn
     else:

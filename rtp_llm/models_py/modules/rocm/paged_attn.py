@@ -17,7 +17,9 @@
 
 from typing import List, Optional, Tuple
 import torch
-import aiter
+#import aiter
+
+from paged_attention_torch import paged_attention_rocm_torch
 
 _PARTITION_SIZE_ROCM = 256
 _DEVICE_PROPERTIES = torch.cuda.get_device_properties("cuda")
@@ -98,8 +100,9 @@ def forward_decode(
         kv_cache_dtype ="auto"
         key_cache_reshaped = key_cache.permute(0,1,3,2)
         value_cache_reshaped = value_cache.permute(0,1,3,2)
+        print(f"###################### call paged_attention_rocm_torch \n")
                 
-        aiter.paged_attention_rocm(
+        paged_attention_rocm_torch(
             output,
             exp_sums,
             max_logits,

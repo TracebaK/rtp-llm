@@ -652,7 +652,7 @@ class GptInitModelParameters:
             enable_cuda_graph_debug_mode=get_env_bool(
                 "ENABLE_CUDA_GRAPH_DEBUG_MODE", False
             ),
-            use_aiter_pa=get_env_bool("USE_AITER_PA", True),
+            use_aiter_pa=get_env_bool("USE_AITER_PA", False),
             enable_native_cuda_graph=get_env_bool("ENABLE_NATIVE_CUDA_GRAPH", False),
             num_native_cuda_graph=get_env_int("NUM_NATIVE_CUDA_GRAPH", 200),
         )

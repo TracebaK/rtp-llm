@@ -13,6 +13,7 @@ using namespace std;
 namespace rtp_llm {
 
 FfnLayerOutput DeviceBase::ffnLayer(const FfnLayerParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     RUNTIME_ASSERT_OP_ARG(!params.residual, "default FFN implementation does not support residual!");
     BufferPtr output;
     BufferPtr moe_gating;

@@ -27,6 +27,7 @@ NormalExecutor::NormalExecutor(const EngineInitParams&                   params,
     auto& gpt_param    = params.gpt_init_parameter;
     enable_detail_log_ = gpt_param.profiling_debug_logging_config.enable_detail_log;
     RTP_LLM_LOG_INFO("enable_detail_log_ = %d", enable_detail_log_);
+    printf("#################### NormalExecutor::NormalExecutor( \n");
 
     if (gpt_param.enable_eplb_ && gpt_param.moe_style_ != 0) {
         // use first moe layer weight as moe weight type

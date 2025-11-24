@@ -5,8 +5,12 @@ from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.ops import PyAttentionInputs, FMHAType, KVCache
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKVCacheDecodeOp
-import aiter
-from aiter import dtypes
+#import aiter
+#from aiter import dtypes
+from vllm import _custom_ops as ops
+#from paged_attention_torch import paged_attention_rocm_torch
+from transformers.utils import is_flash_attn_2_available
+from flash_attn import flash_attn_func
 
 import os
 # Simple data structure for fmha_params
@@ -101,7 +105,8 @@ class AiterPrefillAttnOp():
         k = k_tensor.transpose(1, 2)  # {batch_size, seq_len_with_prefix, head_num_kv, head_dim}
         v = v_tensor.transpose(1, 2)  # {batch_size, seq_len_with_prefix, head_dim}
 
-        res = aiter.flash_attn_func(q, k, v, dropout_p=0., softmax_scale=None, causal=True)
+        #res = aiter.flash_attn_func(q, k, v, dropout_p=0., softmax_scale=None, causal=True)
+        res = flash_attn_func(q, k, v, dropout_p=0., softmax_scale=None, causal=True)
         
         input_lengths = fmha_params.input_lengths  # 每个 batch 的真实长度
         hidden_size = head_num_actual * head_dim
@@ -174,16 +179,18 @@ class AiterDecodeAttnOp():
         max_num_blocks = block_tables_id_device.shape[1]
 
         if os.environ.get('USE_ASM_PA'):
-            output = torch.ops.aiter.pa_fwd_asm(
-                query,
-                key_cache,
-                value_cache,
-                block_tables_id_device,
-                seq_lens,
-                max_num_blocks,
-                k_scale,
-                v_scale,
-            )
+            print(f"##################  use USE_ASM_PA \n")
+            return 
+            #output = torch.ops.aiter.pa_fwd_asm(
+            #    query,
+            #    key_cache,
+            #    value_cache,
+            #    block_tables_id_device,
+            #    seq_lens,
+            #    max_num_blocks,
+            #    k_scale,
+            #    v_scale,
+            #)
         else :
             num_seqs, num_heads, head_size = query.shape
             block_size = value_cache.shape[2]
@@ -215,8 +222,9 @@ class AiterDecodeAttnOp():
             kv_cache_dtype ="auto"
             key_cache_reshaped = key_cache.permute(0,1,3,2)
             value_cache_reshaped = value_cache.permute(0,1,3,2)
+            print("################## call vllm ops.paged_attention_rocm \n")
 
-            aiter.paged_attention_rocm(
+            ops.paged_attention_rocm(
                 output,
                 exp_sums,
                 max_logits,
@@ -234,9 +242,27 @@ class AiterDecodeAttnOp():
                 kv_cache_dtype,  # kv_cache_dtype
                 k_scale,
                 v_scale,
-                fp8_out_scale if cpa_fp8_out else None,
-                _PARTITION_SIZE_ROCM,
             )
-
+            #paged_attention_rocm_torch(
+            #    output,
+            #    exp_sums,
+            #    max_logits,
+            #    tmp_output,
+            #    query,
+            #    key_cache_reshaped,
+            #    value_cache_reshaped,
+            #    num_kv_heads,
+            #    float(scale),
+            #    block_tables_id_device,
+            #    seq_lens,
+            #    block_size,
+            #    max_seq_len,
+            #    alibi_slopes,
+            #    kv_cache_dtype,  # kv_cache_dtype
+            #    k_scale,
+            #    v_scale,
+            #    fp8_out_scale if cpa_fp8_out else None,
+            #    _PARTITION_SIZE_ROCM,
+            #)
         output_reshaped = output.view(output.shape[0], -1)
         return output_reshaped

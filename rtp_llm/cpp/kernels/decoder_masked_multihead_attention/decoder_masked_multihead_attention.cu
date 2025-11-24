@@ -16,6 +16,7 @@
 
 #include "decoder_masked_multihead_attention.h"
 #include "rtp_llm/cpp/kernels/kv_cache/kv_cache_utils.h"
+#include "rtp_llm/cpp/kernels/decoder_masked_multihead_attention/decoder_masked_multihead_attention_launch.h"
 #include "rtp_llm/cpp/utils/utils.h"
 
 #if USING_CUDA
@@ -310,5 +311,29 @@ INSTANTIATE_FUSEDQKV_MASKED_ATTENTION_DISPATCH(__nv_bfloat16, KVBlockArray);
 
 #undef INSTANTIATE_FUSEDQKV_MASKED_ATTENTION_DISPATCH
 
+// #ifdef USING_ROCM
+// #ifdef ENABLE_BF16
+// INSTANTIATE_FUSEDQKV_MASKED_ATTENTION_DISPATCH(amd_bfloat16, KVBlockArray);
+// #endif
+// #endif
+// #ifdef USING_ROCM
+// #ifdef ENABLE_BF16
+// template void rtp_llm::mmha_launch_kernel_ex<
+//     amd_bfloat16,
+//     signed char,
+//     rtp_llm::KVBlockArray,
+//     rtp_llm::Multihead_attention_params<amd_bfloat16, false>,
+//     64,
+//     false,
+//     true,
+//     rtp_llm::RopeStyle::QwenDynamicNTK
+// >(
+//     rtp_llm::Multihead_attention_params<amd_bfloat16, false>& params,
+//     const rtp_llm::KVBlockArray& kv_cache_buffer,
+//     const hipStream_t& stream,
+//     int tlength
+// );
+// #endif
+// #endif
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 }  // namespace rtp_llm

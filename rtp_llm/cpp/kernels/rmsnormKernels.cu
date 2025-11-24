@@ -51,8 +51,123 @@ __inline__ __device__ Tf compute_rmsnorm(Tf val, float s_variance, const T* gamm
  *           amax per row. A final pass scales to int8 accordingly, and writes output to
  *           normed_output_quant.
  */
+// template<typename T, bool IS_OUTPUT, bool IS_BIAS, bool RESIDUAL, bool IS_BETA, typename QUANT_OUT_T>
+// __global__ void generalRmsNorm(T*           output,
+//                                T*           normed_output,
+//                                const T*     input,
+//                                const T*     bias,
+//                                const T*     residual1,
+//                                const T*     residual2,
+//                                const T*     gamma,
+//                                const T*     beta,
+//                                const float  eps,
+//                                int          tokens,
+//                                int          hidden_dim,
+//                                const float* scale_orig_quant_per_tensor,
+//                                float*       scale_orig_quant_per_token,
+//                                QUANT_OUT_T* normed_output_quant) {
+//     constexpr auto num_elems_T = num_elems<T>::value;
+//     using quant_packed_t       = typename packed_as<QUANT_OUT_T, num_elems_T>::type;
+//     using Int32_Packed_T       = typename packed_as<int32_t, num_elems<T>::value>::type;
+//     using float_packed_t       = typename packed_as<float, num_elems_T>::type;
+//     using T_scalar             = typename packed_as<T, 1>::type;
+
+//     extern __shared__ __align__(sizeof(float)) char _shmem[];
+//     T*                                              shmem = reinterpret_cast<T*>(_shmem);
+
+//     __shared__ float s_variance;
+
+//     const int tidx = threadIdx.x;
+//     const int bidx = blockIdx.x;
+
+//     float variance      = 0.0f;
+//     float local_var_sum = 0.0f;
+
+//     const int n_elems = hidden_dim / num_elems_T;
+
+//     const bool           with_per_token_scaling  = scale_orig_quant_per_token != nullptr;
+//     const bool           with_per_tensor_scaling = scale_orig_quant_per_tensor != nullptr;
+//     const bool           has_residual2           = residual2 != nullptr;
+//     const float_packed_t scale_orig_quant =
+//         cuda_cast<float_packed_t>(with_per_tensor_scaling ? *scale_orig_quant_per_tensor : 0.0f);
+//     T_scalar amax = getAmax<QUANT_OUT_T>();
+
+//     for (int i = tidx; i < n_elems; i += blockDim.x) {
+// #if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+//         asm volatile("griddepcontrol.wait;");
+// #endif
+//         const int index = bidx * n_elems + i;
+//         T         val   = cuda_cast<T>(0.0f);
+//         // const T val = input[index];
+//         if (IS_BIAS) {
+//             val = add(val, ldg(&bias[i]));
+//         }
+//         if (RESIDUAL) {
+//             val = add(val, ldg(&residual1[index]));
+//             if (has_residual2) {
+//                 val = add(val, ldg(&residual2[index]));
+//             }
+//         }
+//         if (IS_OUTPUT) {
+//             T in_val = input[index];
+//             val      = add(val, in_val);
+//         }
+
+//         shmem[i] = val;
+
+//         if (IS_OUTPUT) {
+//             output[index] = val;
+//         }
+//         const float_packed_t val_f = cuda_cast<float_packed_t>(val);
+
+//         local_var_sum += cuda_sum<float>(val_f * val_f);
+//     }
+
+//     float packed[1] = {local_var_sum};
+//     blockReduceSumV2<float, 1>(packed);
+//     variance = packed[0];
+
+//     if (threadIdx.x == 0) {
+//         variance   = (variance / hidden_dim);  // Var[x] = E[x²]
+//         s_variance = rsqrtf(variance + eps);
+//     }
+//     __syncthreads();
+//     const float scale_factor = getScaleFactor<QUANT_OUT_T>();
+//     for (int i = tidx; i < n_elems; i += blockDim.x) {
+//         const int            index = bidx * n_elems + i;
+//         const float_packed_t val_f = cuda_cast<float_packed_t>(shmem[i]);
+//         const T val = cuda_cast<T>(compute_rmsnorm<float_packed_t, T, IS_BETA>(val_f, s_variance, gamma, beta, i));
+
+//         if (with_per_token_scaling) {
+//             amax     = cuda_max(cuda_max<T_scalar, T>(cuda_abs(val)), amax);
+//             shmem[i] = val;
+//         } else if (with_per_tensor_scaling) {
+//             reinterpret_cast<quant_packed_t*>(normed_output_quant)[index] =
+//                 cuda_cast<quant_packed_t>(cuda_cast<float_packed_t>(val) * scale_orig_quant);
+//         } else {
+//             normed_output[index] = val;
+//         }
+//     }
+
+//     if (with_per_token_scaling) {
+//         float       abs_max_f               = blockAllReduceMax(cuda_cast<float>(amax));
+//         const float dynamic_per_token_scale = scale_factor / abs_max_f;
+//         for (int i = tidx; i < n_elems; i += blockDim.x) {
+//             const int      index = bidx * n_elems + i;
+//             float_packed_t val_f = cuda_cast<float_packed_t>(shmem[i]);
+//             reinterpret_cast<quant_packed_t*>(normed_output_quant)[index] =
+//                 cuda_cast<quant_packed_t>(val_f * cuda_cast<float_packed_t>(dynamic_per_token_scale));
+//         }
+//         if (tidx == 0) {
+//             scale_orig_quant_per_token[bidx] = abs_max_f / scale_factor;
+//         }
+//     }
+// #if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+//     asm volatile("griddepcontrol.launch_dependents;");
+// #endif
+// }
 template<typename T, bool IS_OUTPUT, bool IS_BIAS, bool RESIDUAL, bool IS_BETA, typename QUANT_OUT_T>
-__global__ void generalRmsNorm(T*           output,
+__global__ __launch_bounds__(1024) void generalRmsNorm(T*           output,
                                T*           normed_output,
                                const T*     input,
                                const T*     bias,
@@ -67,7 +182,11 @@ __global__ void generalRmsNorm(T*           output,
                                float*       scale_orig_quant_per_token,
                                QUANT_OUT_T* normed_output_quant) {
     constexpr auto num_elems_T = num_elems<T>::value;
-    using quant_packed_t       = typename packed_as<QUANT_OUT_T, num_elems_T>::type;
+    using quant_packed_t       = std::conditional_t<
+        std::is_void_v<QUANT_OUT_T>,
+        void,
+        typename packed_as<QUANT_OUT_T, num_elems_T>::type
+    >;
     using Int32_Packed_T       = typename packed_as<int32_t, num_elems<T>::value>::type;
     using float_packed_t       = typename packed_as<float, num_elems_T>::type;
     using T_scalar             = typename packed_as<T, 1>::type;
@@ -98,7 +217,6 @@ __global__ void generalRmsNorm(T*           output,
 #endif
         const int index = bidx * n_elems + i;
         T         val   = cuda_cast<T>(0.0f);
-        // const T val = input[index];
         if (IS_BIAS) {
             val = add(val, ldg(&bias[i]));
         }
@@ -142,21 +260,25 @@ __global__ void generalRmsNorm(T*           output,
             amax     = cuda_max(cuda_max<T_scalar, T>(cuda_abs(val)), amax);
             shmem[i] = val;
         } else if (with_per_tensor_scaling) {
-            reinterpret_cast<quant_packed_t*>(normed_output_quant)[index] =
-                cuda_cast<quant_packed_t>(cuda_cast<float_packed_t>(val) * scale_orig_quant);
+            if constexpr (!std::is_void_v<QUANT_OUT_T>) {
+                reinterpret_cast<quant_packed_t*>(normed_output_quant)[index] =
+                    cuda_cast<quant_packed_t>(cuda_cast<float_packed_t>(val) * scale_orig_quant);
+            }
         } else {
             normed_output[index] = val;
         }
     }
 
     if (with_per_token_scaling) {
-        float       abs_max_f               = blockAllReduceMax(cuda_cast<float>(amax));
-        const float dynamic_per_token_scale = scale_factor / abs_max_f;
-        for (int i = tidx; i < n_elems; i += blockDim.x) {
-            const int      index = bidx * n_elems + i;
-            float_packed_t val_f = cuda_cast<float_packed_t>(shmem[i]);
-            reinterpret_cast<quant_packed_t*>(normed_output_quant)[index] =
-                cuda_cast<quant_packed_t>(val_f * cuda_cast<float_packed_t>(dynamic_per_token_scale));
+        float abs_max_f = blockAllReduceMax(cuda_cast<float>(amax));
+        if constexpr (!std::is_void_v<QUANT_OUT_T>) {
+            const float dynamic_per_token_scale = scale_factor / abs_max_f;
+            for (int i = tidx; i < n_elems; i += blockDim.x) {
+                const int index = bidx * n_elems + i;
+                float_packed_t val_f = cuda_cast<float_packed_t>(shmem[i]);
+                reinterpret_cast<quant_packed_t*>(normed_output_quant)[index] =
+                    cuda_cast<quant_packed_t>(val_f * cuda_cast<float_packed_t>(dynamic_per_token_scale));
+            }
         }
         if (tidx == 0) {
             scale_orig_quant_per_token[bidx] = abs_max_f / scale_factor;
@@ -167,8 +289,9 @@ __global__ void generalRmsNorm(T*           output,
 #endif
 }
 
+
 template<typename T, bool IS_BIAS>
-__global__ void rmsNormWithStride(T* __restrict output,
+__global__ __launch_bounds__(1024) void rmsNormWithStride(T* __restrict output,
                                   const int out_stride,
                                   const T* __restrict input,
                                   const int in_stride,
@@ -729,6 +852,11 @@ void invokeAddBiasResidualRmsNorm(T*           output,
 
 INSTANTIATE_GENERAL_RMSNORM(float, int8_t);
 INSTANTIATE_GENERAL_RMSNORM(half, int8_t);
+
+// fix bug : undefined symbol2
+INSTANTIATE_GENERAL_RMSNORM(float, void);
+INSTANTIATE_GENERAL_RMSNORM(half, void);
+INSTANTIATE_GENERAL_RMSNORM(__nv_bfloat16, void);
 
 #ifdef ENABLE_BF16
 INSTANTIATE_GENERAL_RMSNORM(__nv_bfloat16, int8_t);

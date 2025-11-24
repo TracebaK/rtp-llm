@@ -39,7 +39,7 @@ TEST_F(AttentionOpTest, SelfAttentionOpTest) {
 }
 
 TEST_F(AttentionOpTest, AiterPageAttentionOpTest) {
-    autil::EnvUtil::setEnv("USE_AITER_PA", "1");
+    autil::EnvUtil::setEnv("USE_AITER_PA", "0");
     device_ = new ROCmDevice(DeviceInitParams());
     device_->init();
     std::vector<size_t> batch = {128};

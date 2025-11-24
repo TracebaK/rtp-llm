@@ -36,6 +36,7 @@ class FMHAImplBase(object):
         self.support_: bool = self.fmha_impl.support(attn_inputs)
         self.fmha_params = None
         self.rope_params = None
+        print(f"############# call class FMHAImplBase(object):")
         self.write_cache_store_impl = None
         if self.support_ and init_params:
             self.rope_kvcache_impl = rope_kvcache_impl
@@ -61,6 +62,7 @@ class FMHAImplBase(object):
         ):
             self.write_cache_store_impl(kv_cache)
         assert self.fmha_impl is not None
+        print(f"############self.fmha_impl type = {type(self.fmha_impl)} \n")
         res = self.fmha_impl.forward(fmha_input, kv_cache, self.fmha_params)
         return res
 
@@ -75,6 +77,7 @@ class FMHAImplBase(object):
         return False
 
     def prepare(self, attn_inputs: PyAttentionInputs):
+        print(f"############# limengmeng PyAttentionInputs \n")
         assert self.fmha_impl is not None
         self.fmha_params = self.fmha_impl.prepare(attn_inputs)
         assert self.rope_kvcache_impl is not None

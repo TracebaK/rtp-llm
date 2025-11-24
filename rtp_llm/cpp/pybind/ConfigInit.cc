@@ -223,7 +223,7 @@ void register_hwkernel_config(pybind11::module& m) {
              pybind11::arg("rocm_hipblaslt_config")        = "gemm_config.csv",
              pybind11::arg("enable_cuda_graph")            = false,
              pybind11::arg("enable_cuda_graph_debug_mode") = false,
-             pybind11::arg("use_aiter_pa")                 = true,
+             pybind11::arg("use_aiter_pa")                 = false,
              pybind11::arg("enable_native_cuda_graph")     = false,
              pybind11::arg("num_native_cuda_graph")        = 200)
         .def("to_string", &HWKernelConfig::to_string)

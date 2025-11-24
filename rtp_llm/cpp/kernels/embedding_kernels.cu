@@ -32,7 +32,7 @@
 namespace rtp_llm {
 
 template<typename T, bool USE_POS_EMB, bool USE_TYPE_ID_EMB, bool USE_MASK>
-__global__ void embedding_lookup_kernel(T*            from_tensor,
+__global__ __launch_bounds__(1024) void embedding_lookup_kernel(T*            from_tensor,
                                         const T*      embedding_table,
                                         double        input_embedding_scalar,
                                         const T*      pos_table,
@@ -86,7 +86,7 @@ __global__ void embedding_lookup_kernel(T*            from_tensor,
 #define LDST128BITS(value) (reinterpret_cast<float4*>(&(value))[0])
 
 template<typename VectorType, typename T, bool USE_POS_EMB, bool USE_TYPE_ID_EMB, bool USE_MASK>
-__global__ void embedding_lookup_kernel_vec(T*            from_tensor,
+__global__ __launch_bounds__(1024) void embedding_lookup_kernel_vec(T*            from_tensor,
                                             const T*      embedding_table,
                                             double        input_embedding_scalar,
                                             const T*      pos_table,

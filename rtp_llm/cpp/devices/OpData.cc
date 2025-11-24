@@ -117,6 +117,7 @@ void GemmParams::check() const {
 
     auto k_b = (transB == TransposeOperation::NONE) ? B.shape()[dim - 2] : B.shape()[dim - 1];
     auto n_b = (transB == TransposeOperation::NONE) ? B.shape()[dim - 1] : B.shape()[dim - 2];
+    std::cout << "Gemm op A (" << enumToString(transA).c_str() << ") [" << ShapeStringView(A.shape()).c_str() << "] need compact with B (" << enumToString(transB).c_str() << ") [" << ShapeStringView(B.shape()).c_str() << "]!" << std::endl; 
 
     RTP_LLM_CHECK_WITH_INFO((k_a == k_b),
                             "Gemm op A (%s) [%s] need compact with B (%s) [%s]!",

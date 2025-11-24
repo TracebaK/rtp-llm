@@ -80,3 +80,4 @@ register_device("A100", ["NVIDIA A800-SXM4-80GB", "NVIDIA A100-SXM4-80GB"], _LUT
 register_device("V100", ["Tesla V100S-PCIE-32GB"], _LUT_PATH)
 register_device("H20", ["NVIDIA H20"], None)
 register_device("L40S", ["NVIDIA L40S"], None)
+register_device("BW200", ["BW200"], _LUT_PATH)

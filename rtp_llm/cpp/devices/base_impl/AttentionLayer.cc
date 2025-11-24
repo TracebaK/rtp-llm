@@ -9,6 +9,7 @@ using namespace std;
 namespace rtp_llm {
 
 BufferPtr DeviceBase::attentionQKVGemm(const AttentionLayerParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     const auto token_num     = params.input.shape()[0];
     const auto pad_token_num = params.enable_sp ? params.pad_token_num : token_num;
 
@@ -72,6 +73,7 @@ BufferPtr DeviceBase::attentionQKVGemm(const AttentionLayerParams& params) {
 }
 
 BufferPtr DeviceBase::attentionAttn(const AttentionLayerParams& params) {
+    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     const auto& input_lengths    = *params.common.input_lengths;
     const auto& sequence_lengths = *params.common.sequence_lengths;
 

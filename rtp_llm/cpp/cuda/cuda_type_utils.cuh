@@ -830,6 +830,18 @@ template<> struct packed_as<__nv_fp8_e5m2,  2> { using type = __nv_fp8x2_e5m2; }
 template<> struct packed_as<__nv_fp8x2_e5m2, 1> { using type = __nv_fp8_e5m2;  };
 #endif
 
+// fix undefined symbol2: Specialization for void
+template<int num>
+struct packed_as<void, num> {
+    using type = void;
+};
+
+template<>
+struct packed_as<void, 1> {
+    using type = void;
+};
+
+
 inline __device__ float2 operator*(float2 a, float2 b) { return make_float2(a.x * b.x, a.y * b.y); }
 inline __device__ float2 operator+(float2 a, float2 b) { return make_float2(a.x + b.x, a.y + b.y); }
 inline __device__ float2 operator-(float2 a, float2 b) { return make_float2(a.x - b.x, a.y - b.y); }

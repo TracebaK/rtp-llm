@@ -248,6 +248,7 @@ class FrontendWorker:
         batch_infer: bool,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         iterators = [gen.__aiter__() for gen in generators]
+        print(f"############################################################# _batch_async_generators \n")
         done_idxs: Set[int] = set()
         batch_state: List[Any] = [None] * len(iterators)
         while True:

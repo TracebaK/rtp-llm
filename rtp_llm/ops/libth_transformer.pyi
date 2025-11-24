@@ -609,7 +609,7 @@ class HWKernelConfig:
         rocm_hipblaslt_config: str = "gemm_config.csv",
         enable_cuda_graph: bool = False,
         enable_cuda_graph_debug_mode: bool = False,
-        use_aiter_pa: bool = True,
+        use_aiter_pa: bool = False,
         enable_native_cuda_graph: bool = False,
         num_native_cuda_graph: int = 200,
     ) -> None: ...

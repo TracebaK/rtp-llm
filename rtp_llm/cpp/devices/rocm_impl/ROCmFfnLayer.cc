@@ -7,11 +7,11 @@
 #include "rtp_llm/cpp/kernels/moe_kernels.h"
 
 // aiter kernels
-#include "aiter_enum.h"
-#include "moe_op.h"
-#include "quant.h"
-#include "moe_sorting.h"
-#include "moe_ck.h"
+// #include "aiter_enum.h"
+// #include "moe_op.h"
+// #include "quant.h"
+// #include "moe_sorting.h"
+// #include "moe_ck.h"
 
 // #include "aiter_meta/csrc/include/aiter_enum.h"
 // #include "aiter_meta/csrc/include/moe_op.h"
@@ -24,6 +24,7 @@ using namespace std;
 namespace rtp_llm {
 
 MoeDispatchOutput ROCmDevice::epDispatch(const MoeDispatchParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     DevicePerfWrapper wrapper(this, "epDispatch");
     // if (init_params_.use_deepep_moe) {
     //     if (init_params_.use_deepep_low_latency) {
@@ -157,6 +158,7 @@ MoeDispatchOutput ROCmDevice::epDispatch(const MoeDispatchParams& params) {
 }
 
 MoeCombineOutput ROCmDevice::epCombine(const MoeCombineParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     DevicePerfWrapper wrapper(this, "epCombine");
     // if (init_params_.use_deepep_moe) {
     //     if (init_params_.use_deepep_low_latency) {
@@ -174,6 +176,7 @@ MoeCombineOutput ROCmDevice::epCombine(const MoeCombineParams& params) {
 }
 
 FfnLayerOutput ROCmDevice::gatherCombineOutput(const MoeCombineOutput& combine_outputs) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     auto&       all_output     = combine_outputs.all_output;
     auto        scatter_output = combine_outputs.scatter_output;
     const auto& params         = combine_outputs.params;
@@ -254,6 +257,7 @@ FfnLayerOutput ROCmDevice::gatherCombineOutput(const MoeCombineOutput& combine_o
 }
 
 MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
     const MoeConfigs& moe_conf = params.configs.moe_configs.value();
 
     const Buffer& hidden     = params.input;
@@ -288,7 +292,8 @@ MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
                 Buffer2torchTensor(*(params.weights.e_score_correction_bias), false).to(torch::kFloat32);
 
             // invoke aiter kernel
-            biased_grouped_topk(
+            /*
+	    biased_grouped_topk(
                 logits_tensor,
                 e_score_correction_bias_tensor,
                 topk_weights_tensor,
@@ -296,6 +301,7 @@ MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
                 n_group,
                 topk_group,
                 has_moe_norm);  // FIXME(liyangcheng.lyc): not set routed_scaling_factor, no such config now
+            */
 
             if (params.need_moe_gating) {
                 // TODO(zhangjianning.zjn): would be better to get the corrected moe gating from the kernel above
@@ -316,8 +322,8 @@ MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
         torch::Tensor token_expert_indicies_tensor = Buffer2torchTensor(*token_expert_indicies, false);
 
         // invoke aiter kernel
-        aiter::topk_softmax(
-            topk_weights_tensor, topk_ids_tensor, token_expert_indicies_tensor, logits_tensor, has_moe_norm);
+        // aiter::topk_softmax(
+        //    topk_weights_tensor, topk_ids_tensor, token_expert_indicies_tensor, logits_tensor, has_moe_norm);
 
         moe_gating = std::move(logits);
     }
@@ -326,6 +332,8 @@ MoeGateSelectOutput ROCmDevice::moeGateSelect(const FfnLayerParams& params) {
 }
 
 FfnLayerOutput ROCmDevice::moeFfn(const FfnLayerParams& params, const MoeGateSelectOutput& gate_outputs) {
+    throw OpException(OpErrorType::ERROR_UNIMPLEMENTED);
+    /*
     const MoeConfigs& moe_conf = params.configs.moe_configs.value();
 
     const Buffer& hidden = params.input;
@@ -422,40 +430,7 @@ FfnLayerOutput ROCmDevice::moeFfn(const FfnLayerParams& params, const MoeGateSel
         torch::Tensor num_valid_ids_tensor     = Buffer2torchTensor(*num_valid_ids, false);
 
         torch::Tensor moe_out_tensor = Buffer2torchTensor(*moe_out_final, false);
-
-        // invoke aiter moe_sorting kernel
-        moe_sorting_fwd(
-            /*topk_ids=*/topk_ids_tensor,
-            /*topk_weights=*/topk_weights_tensor,
-            /*sorted_token_ids=*/sorted_ids_tensor,
-            /*sorted_weights=*/sorted_weights_tensor,
-            /*sorted_expert_ids=*/sorted_expert_ids_tensor,
-            /*num_valid_ids=*/num_valid_ids_tensor,
-            /*moe_buf=*/moe_out_tensor,
-            /*num_experts=*/num_expert,
-            /*unit_size=*/unit_size,
-            /*local_expert_mask=*/local_expert_mask_tensor);
-
-        // step 3.4 invoke fused_moe function
-        fmoe_fp8_blockscale_g1u1(
-            /*out=*/moe_out_tensor,
-            /*input=*/hidden_quant_tensor,
-            /*gate=*/w1_tensor,
-            /*down=*/w2_tensor,
-            /*sorted_token_ids=*/sorted_ids_tensor,
-            /*sorted_weight_buf=*/sorted_weights_tensor,
-            /*sorted_expert_ids=*/sorted_expert_ids_tensor,
-            /*num_valid_ids=*/num_valid_ids_tensor,
-            /*topk=*/topk,
-            /*input_scale=*/hidden_quant_scale_tensor,
-            /*fc1_scale=*/w1_scale_tensor,
-            /*fc2_scale=*/w2_scale_tensor,
-            /*fc_scale_blkn=*/block_scale_n,
-            /*fc_scale_blkk*/ block_scale_k,
-            /*fc2_smooth_scale=*/nullopt,
-            /*activation*/ ::ActivationType::Silu);
-
-        printBufferData(*moe_out_final, "rocm_moe_out_final");
+       printBufferData(*moe_out_final, "rocm_moe_out_final");
 
     } else if (params.qscheme == QScheme::NoQuantize) {
         const int unit_size = 32;
@@ -502,6 +477,7 @@ FfnLayerOutput ROCmDevice::moeFfn(const FfnLayerParams& params, const MoeGateSel
     }
 
     return {moe_out_final};
+*/
 }
 
 }  // namespace rtp_llm

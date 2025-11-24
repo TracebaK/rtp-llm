@@ -9,8 +9,8 @@ class CompleteResponseAsyncGenerator:
         self._collect_complete_response_func = collect_complete_response_func
         self._all_responses = []
 
-    def __aiter__(self):
-        return self
+    #def __aiter__(self):
+    #    return self
 
     async def __anext__(self):
         try:
