@@ -2,7 +2,9 @@
 /home/wheels/torch-2.5.1+das.opt1.dtk25041-cp310-cp310-manylinux_2_28_x86_64.whl
 /home/wheels/torchvision-0.20.1+das.opt1.dtk25041-cp310-cp310-manylinux_2_28_x86_64.whl
 /home/wheels/triton-3.0.0+das.opt1.dtk25041-cp310-cp310-manylinux_2_28_x86_64.whl
-pyrsmi
+/home/wheels/amdsmi-24.5.3+02cbffb.dirty-py3-none-any.whl
+/home/wheels/pyrsmi-0.2.0-py2.py3-none-any.whl
+/home/wheels/lightop-0.6.0+das.dtk25042-cp310-cp310-manylinux_2_28_x86_64.whl
 pyyaml
-/home/wheels/aiter-0.1.1.dev1+g1b00a0e8a.d20251022-cp310-cp310-linux_x86_64.whl
-https://sinian-metrics-platform.oss-cn-hangzhou.aliyuncs.com/kis%2FAMD%2Famd_smi%2Fali%2Famd_smi.tar
+# /home/wheels/aiter-0.1.1.dev1+g1b00a0e8a.d20251022-cp310-cp310-linux_x86_64.whl
+# https://sinian-metrics-platform.oss-cn-hangzhou.aliyuncs.com/kis%2FAMD%2Famd_smi%2Fali%2Famd_smi.tar

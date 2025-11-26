@@ -108,8 +108,8 @@ aiosignal==1.4.0 \
     --hash=sha256:053243f8b92b990551949e63930a839ff0cf0b0ebbe0597b0f3fb19e1a0fe82e \
     --hash=sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7
     # via aiohttp
-aiter @ file:///home/wheels/aiter-0.1.1.dev1+g1b00a0e8a.d20251022-cp310-cp310-linux_x86_64.whl \
-    --hash=sha256:e6d0568ffc2ce80ec9a115a3e178df5671dda60673bbfb983e1ef123fd70ed34
+# aiter @ file:///home/wheels/aiter-0.1.1.dev1+g1b00a0e8a.d20251022-cp310-cp310-linux_x86_64.whl \
+#     --hash=sha256:e6d0568ffc2ce80ec9a115a3e178df5671dda60673bbfb983e1ef123fd70ed34
     # via -r requirements_rocm.txt
 aliyun-python-sdk-core==2.16.0 \
     --hash=sha256:651caad597eb39d4fad6cf85133dffe92837d53bdf62db9d8f37dab6508bb8f9
@@ -120,8 +120,8 @@ aliyun-python-sdk-kms==2.16.5 \
     --hash=sha256:24b6cdc4fd161d2942619479c8d050c63ea9cd22b044fe33b60bbb60153786f0 \
     --hash=sha256:f328a8a19d83ecbb965ffce0ec1e9930755216d104638cd95ecd362753b813b3
     # via oss2
-amdsmi @ https://sinian-metrics-platform.oss-cn-hangzhou.aliyuncs.com/kis%2FAMD%2Famd_smi%2Fali%2Famd_smi.tar \
-    --hash=sha256:8a350c562cf6c63d562eef27b2511a8ea67adc056662c6cde85ab1312ecb22ff
+amdsmi @ file:///home/wheels/amdsmi-24.5.3+02cbffb.dirty-py3-none-any.whl \
+    --hash=sha256:9a50b30a2b74c25d0b8f00e13e15fa2febcb1c2b0a98a27152611db43a9c8ad4
     # via -r requirements_rocm.txt
 annotated-types==0.7.0 \
     --hash=sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53 \
@@ -2557,7 +2557,7 @@ pyparsing==3.2.4 \
     --hash=sha256:91d0fcde680d42cd031daf3a6ba20da3107e08a75de50da58360e7d94ab24d36 \
     --hash=sha256:fff89494f45559d0f2ce46613b419f632bbb6afbdaed49696d322bcf98a58e99
     # via matplotlib
-pyrsmi==0.2.0 \
+pyrsmi @ file:///home/wheels/pyrsmi-0.2.0-py2.py3-none-any.whl \
     --hash=sha256:594388e5e0e916555d8b92b8b73e38aa73903a9d03ad89c172fefa187fc3ea41 \
     --hash=sha256:b5b934e6b10ffaf0612271b98d732c99b94cca773e6e86003b6e938a53bd688f
     # via -r requirements_rocm.txt
