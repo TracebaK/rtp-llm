@@ -240,3 +240,52 @@ class FusedQKRMSNorm(nn.Module):
             self.size_per_head,
         )
         return hidden_states
+
+
+class FusedQKRMSNorm(nn.Module):
+    def __init__(
+        self,
+        q_weight: torch.Tensor,
+        k_weight: torch.Tensor,
+        head_num: int,
+        kv_head_num: int,
+        size_per_head: float = 128,
+        eps: float = 1e-6,
+    ):
+        super().__init__()
+        self.q_weight = q_weight
+        self.k_weight = k_weight
+        self.eps = eps
+        self.head_num = head_num
+        self.kv_head_num = kv_head_num
+        self.size_per_head = size_per_head
+        self.q_size = self.head_num * self.size_per_head
+        self.kv_size = self.kv_head_num * self.size_per_head
+
+    def forward(self, hidden_states):
+        # 保存原始数据类型
+        input_dtype = hidden_states.dtype
+        
+        # 将输入转换为float32进行计算
+        hidden_states = hidden_states.to(torch.float32)
+        
+        # 分离Q、K、V部分
+        q, k, v = hidden_states.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+        
+        # 对Q部分应用RMSNorm
+        q = q.view(-1, self.size_per_head)
+        variance_q = q.pow(2).mean(-1, keepdim=True)
+        q = q * torch.rsqrt(variance_q + self.eps)
+        q = (self.q_weight * q).to(input_dtype)
+        q = q.view(-1, self.q_size)
+        
+        # 对K部分应用RMSNorm
+        k = k.view(-1, self.size_per_head)
+        variance_k = k.pow(2).mean(-1, keepdim=True)
+        k = k * torch.rsqrt(variance_k + self.eps)
+        k = (self.k_weight * k).to(input_dtype)
+        k = k.view(-1, self.kv_size)
+        
+        # 合并结果
+        output = torch.cat([q, k, v], dim=-1)
+        return output

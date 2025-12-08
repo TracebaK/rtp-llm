@@ -142,6 +142,36 @@ class FusedQKRMSNorm(nn.Module):
 
     def forward(self, hidden_states: torch.Tensor):
         m, n = hidden_states.shape
+        # 使用PyTorch原生实现替换rtp_llm_ops.fused_qk_rmsnorm
+        # 将hidden_states reshape成(batch, heads, size_per_head)
+        hidden_states_reshaped = hidden_states.view(m, -1, self.size_per_head)
+        
+        # 分别获取Q和K的部分
+        q = hidden_states_reshaped[:, :self.head_num, :]
+        k = hidden_states_reshaped[:, self.head_num:self.head_num + self.kv_head_num, :]
+        
+        # 对Q应用RMSNorm
+        q_dtype = q.dtype
+        q_float = q.to(torch.float32)
+        q_variance = q_float.pow(2).mean(-1, keepdim=True)
+        q_normalized = q_float * torch.rsqrt(q_variance + self.eps)
+        q_result = self.q_weight * q_normalized.to(q_dtype)
+        
+        # 对K应用RMSNorm
+        k_dtype = k.dtype
+        k_float = k.to(torch.float32)
+        k_variance = k_float.pow(2).mean(-1, keepdim=True)
+        k_normalized = k_float * torch.rsqrt(k_variance + self.eps)
+        k_result = self.k_weight * k_normalized.to(k_dtype)
+        
+        # 将结果写回hidden_states
+        hidden_states_reshaped[:, :self.head_num, :] = q_result
+        hidden_states_reshaped[:, self.head_num:self.head_num + self.kv_head_num, :] = k_result
+        
+        return hidden_states
+
+    def forward_old(self, hidden_states: torch.Tensor):
+        m, n = hidden_states.shape
         rtp_llm_ops.fused_qk_rmsnorm(
             hidden_states,
             self.q_weight,

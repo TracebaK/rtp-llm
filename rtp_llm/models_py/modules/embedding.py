@@ -24,6 +24,22 @@ class Embedding(nn.Module):
         self.config = config
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
+        # tokens = input.size(0)
+        # hidden_size = self.weight.size(-1)
+        # 使用PyTorch原生embedding替代rtp_llm_ops.embedding
+        output = F.embedding(input, self.weight.data)
+        if self.config.tp_size > 1:
+            m, n = output.shape
+            output = all_gather(output, group=Group.TP)
+            output = (
+                output.reshape(self.config.tp_size, m, n)
+                .transpose(0, 1)
+                .contiguous()
+                .reshape(m, -1)
+            )
+        return output
+    
+    def forward_old(self, input: torch.Tensor) -> torch.Tensor:
         tokens = input.size(0)
         hidden_size = self.weight.size(-1)
         output = torch.empty(
