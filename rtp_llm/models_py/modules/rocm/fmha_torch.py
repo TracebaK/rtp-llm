@@ -43,12 +43,14 @@ class TorchNativeRopeKVCachePrefillOp:
         return self.fmha_params
     
     def forward(self, qkv, fmha_type, kv_cache, params):
+        print("TorchNativeRopeKVCachePrefillOp.forward called")
         # Extract Q, K, V from qkv
         # qkv is expected to be of shape [token_num, head_num * 3 * size_per_head]
         batch_size = params.batch_size
         max_seq_len = params.max_seq_len
         
         # Reshape qkv to separate Q, K, V
+        print(f"TorchNativeRopeKVCachePrefillOp {self.gpt_init_params=}")
         head_num = self.gpt_init_params.head_num if hasattr(self.gpt_init_params, 'head_num') else 32
         head_num_kv = getattr(self.gpt_init_params, 'head_num_kv', head_num)
         size_per_head = getattr(self.gpt_init_params, 'size_per_head', 128)
@@ -324,11 +326,14 @@ class TorchNativePrefillAttnOp():
         """
         使用纯PyTorch实现的prefill阶段注意力计算
         """
+        print(f"======TorchNativePrefillAttnOp forward, {fmha_params=}")
         # q_tensor: {batch_size, head_num, seq_len, head_dim}
         # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
         # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
         q_tensor, k_tensor, v_tensor = qkv[0], qkv[1], qkv[2]
-        
+        print(f"======TorchNativePrefillAttnOp {q_tensor.shape=}, {k_tensor.shape=}, {v_tensor.shape=}")
+        print(f"======TorchNativePrefillAttnOp {q_tensor.dtype=}, {k_tensor.dtype=}, {v_tensor.dtype=}")
+
         batch_size, head_num, seq_len, head_dim = q_tensor.shape
         seq_len_with_prefix = k_tensor.shape[2]
         
@@ -342,30 +347,36 @@ class TorchNativePrefillAttnOp():
             v_tensor = v_tensor.repeat_interleave(repeat_factor, dim=1)
         
         # 转换维度以适应注意力计算: {batch_size, seq_len, heads, head_dim}
-        q = q_tensor.transpose(1, 2)  # {batch_size, seq_len, head_num, head_dim}
-        k = k_tensor.transpose(1, 2)  # {batch_size, seq_len_with_prefix, head_num, head_dim}
-        v = v_tensor.transpose(1, 2)  # {batch_size, seq_len_with_prefix, head_num, head_dim}
-        
+        q = q_tensor.transpose(1, 2).reshape(batch_size, seq_len, -1)  # {batch_size, seq_len, head_num*head_dim}
+        k = k_tensor.transpose(1, 2).reshape(batch_size, seq_len, -1)  # {batch_size, seq_len_with_prefix, head_num*head_dim}
+        v = v_tensor.transpose(1, 2).reshape(batch_size, seq_len, -1)  # {batch_size, seq_len_with_prefix, head_num*head_dim}
+        print(f"======TorchNativePrefillAttnOp after transpose {q.shape=}, {k.shape=}, {v.shape=}")
+
         # 计算注意力分数
         scale = 1.0 / (head_dim ** 0.5)
         
         # 遮罩矩阵 - 因果遮罩 (causal mask)
         attn_mask = torch.tril(torch.ones(seq_len, seq_len_with_prefix, device=q.device), diagonal=seq_len_with_prefix - seq_len)
-        attn_mask = attn_mask.unsqueeze(0).unsqueeze(-1)  # {1, seq_len, seq_len_with_prefix, 1}
-        
+        attn_mask = attn_mask.unsqueeze(0)  # {1, seq_len, seq_len_with_prefix}
+        print(f"======TorchNativePrefillAttnOp {attn_mask.shape=}")
+
         # 计算Q*K^T
         scores = torch.matmul(q, k.transpose(-2, -1)) * scale  # {batch_size, seq_len, head_num, seq_len_with_prefix}
-        
+        print(f"======TorchNativePrefillAttnOp after QK {scores.shape=}")
+
         # 应用因果遮罩
         scores = scores.masked_fill(attn_mask == 0, float('-inf'))
-        
+        print(f"======TorchNativePrefillAttnOp after mask {scores.shape=}")
+
         # 计算注意力权重
         attn_weights = torch.softmax(scores, dim=-1)  # {batch_size, seq_len, head_num, seq_len_with_prefix}
         
         # 应用注意力权重到V
-        attn_output = torch.matmul(attn_weights, v)  # {batch_size, seq_len, head_num, head_dim}
+        attn_output = torch.matmul(attn_weights, v)  # {batch_size, seq_len, head_num*head_dim}
+        print(f"======TorchNativePrefillAttnOp after v mul {attn_output.shape=}")        
         
         # 转换回原始维度: {batch_size, head_num, seq_len, head_dim}
+        attn_output = attn_output.reshape(batch_size, seq_len, head_num, head_dim)
         attn_output = attn_output.transpose(1, 2).contiguous()
         
         # 重塑输出以匹配期望的格式
@@ -380,7 +391,7 @@ class TorchNativePrefillAttnOp():
             valid_results.append(batch_result)
         
         final_result = torch.cat(valid_results, dim=0)  # {total_token_num, hidden_size}
-        
+        print(f"======TorchNativePrefillAttnOp before return {final_result.shape=}")        
         return final_result
 
 try:
@@ -434,6 +445,8 @@ class TorchNativeDecodeAttnOp():
         seq_lens = fmha_params.seq_lens
         key_cache = kv_cache.k_cache_base if kv_cache else None
         value_cache = kv_cache.v_cache_base if kv_cache else None
+        print(f"======TorchNativeDecodeAttnOp forward: {key_cache.shape}, {value_cache.shape}") 
+
         block_tables_id_device = fmha_params.kv_cache_block_id_device
         
         batch_size, num_heads, head_size = query.shape

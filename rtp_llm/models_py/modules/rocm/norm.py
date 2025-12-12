@@ -48,43 +48,42 @@ class LayerNorm(BaseLayerNorm):
         )
         return output
 
-def rmsnorm_forward_torch(hidden_states,weight,eps):
-    input_dtype = hidden_states.dtype
-    variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
-    hidden_states = hidden_states * torch.rsqrt(variance + eps)
-    if weight is not None:
-        if weight.dtype in [torch.float16, torch.bfloat16]:
-            hidden_states = hidden_states * weight.to(torch.float32)
-            hidden_states = hidden_states.to(weight.dtype)
-        else:
-            hidden_states = hidden_states * weight
-    else:
-        hidden_states = hidden_states.to(input_dtype)
-    return hidden_states
 
-class RMSNorm(torch.nn.Module):
-    def __init__(self, weight: torch.Tensor, eps: float = 1e-5, training: bool = False):
-        super(RMSNorm, self).__init__()
-        self.eps = eps
-        self.weight = weight
-        self.training = training
-        print(f"######################## class lightop RMSNorm \n")
-        self.rmsnorm_compile=torch.compile(rmsnorm_forward_torch)
-
-    def forward(self, hidden_states):
-        if hidden_states.dtype == torch.bfloat16 and self.weight.numel()==128 and self.training==False:
-            return self.rmsnorm_compile(hidden_states, self.weight, self.eps)
-        return op.rmsnorm_forward_autograd(hidden_states, self.weight, self.eps, self.training)
-
-    def extra_repr(self):
-        return f'eps={round(self.eps,5):0.5f}'
-
-#class RMSNorm(BaseNorm):
-#    def __init__(self, weight: torch.Tensor, eps: float = 1e-6):
-#        super().__init__(weight, eps)
+#class RMSNorm(torch.nn.Module):
+#    def __init__(self, weight: torch.Tensor, eps: float = 1e-5, training: bool = False):
+#        super(RMSNorm, self).__init__()
+#        self.eps = eps
+#        self.weight = weight
+#        self.training = training
+#        print(f"######################## class lightop RMSNorm \n")
+#        self.rmsnorm_compile=torch.compile(rmsnorm_forward_torch)
 #
-#    def forward(self, hidden_states: torch.Tensor):
-#        return rms_norm(hidden_states, self.weight.data, self.variance_epsilon)
+#    def forward(self, hidden_states):
+#        if hidden_states.dtype == torch.bfloat16 and self.weight.numel()==128 and self.training==False:
+#            return self.rmsnorm_compile(hidden_states, self.weight, self.eps)
+#        return op.rmsnorm_forward_autograd(hidden_states, self.weight, self.eps, self.training)
+#
+#    def extra_repr(self):
+#        return f'eps={round(self.eps,5):0.5f}'
+
+class RMSNorm(BaseNorm):
+    def __init__(self, weight: torch.Tensor, eps: float = 1e-6):
+        super().__init__(weight, eps)
+
+    def forward(self, hidden_states: torch.Tensor):
+        print(f"======RMSNorm {hidden_states.shape}, {hidden_states.dtype}")
+        input_dtype = hidden_states.dtype
+        variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
+        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        if self.weight is not None:
+            if self.weight.dtype in [torch.float16, torch.bfloat16]:
+                hidden_states = hidden_states * self.weight.to(torch.float32)
+                hidden_states = hidden_states.to(self.weight.dtype)
+            else:
+                hidden_states = hidden_states * self.weight
+        else:
+            hidden_states = hidden_states.to(input_dtype)
+        return hidden_states
 
 
 class BaseAddBiasResLayerNorm(torch.nn.Module):
@@ -227,60 +226,25 @@ class FusedQKRMSNorm(nn.Module):
         self.kv_size = self.kv_head_num * self.size_per_head
 
     def forward(self, hidden_states):
-        m, n = hidden_states.shape
-        rtp_llm_ops.fused_qk_rmsnorm(
-            hidden_states,
-            self.q_weight,
-            self.k_weight,
-            self.eps,
-            self.head_num,
-            self.kv_head_num,
-            m,
-            n,
-            self.size_per_head,
-        )
-        return hidden_states
-
-
-class FusedQKRMSNorm(nn.Module):
-    def __init__(
-        self,
-        q_weight: torch.Tensor,
-        k_weight: torch.Tensor,
-        head_num: int,
-        kv_head_num: int,
-        size_per_head: float = 128,
-        eps: float = 1e-6,
-    ):
-        super().__init__()
-        self.q_weight = q_weight
-        self.k_weight = k_weight
-        self.eps = eps
-        self.head_num = head_num
-        self.kv_head_num = kv_head_num
-        self.size_per_head = size_per_head
-        self.q_size = self.head_num * self.size_per_head
-        self.kv_size = self.kv_head_num * self.size_per_head
-
-    def forward(self, hidden_states):
+        print(f"======FusedQKRMSNorm called, {hidden_states.shape=}, {hidden_states.dtype=}")
         # 保存原始数据类型
         input_dtype = hidden_states.dtype
         
         # 将输入转换为float32进行计算
-        hidden_states = hidden_states.to(torch.float32)
+        # hidden_states = hidden_states.to(torch.float32)
         
         # 分离Q、K、V部分
         q, k, v = hidden_states.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
-        
+        print(f"======After split {q.shape=}, {k.shape=}, {v.shape=}") 
         # 对Q部分应用RMSNorm
-        q = q.view(-1, self.size_per_head)
+        q = q.reshape(-1, self.size_per_head)
         variance_q = q.pow(2).mean(-1, keepdim=True)
         q = q * torch.rsqrt(variance_q + self.eps)
         q = (self.q_weight * q).to(input_dtype)
         q = q.view(-1, self.q_size)
         
         # 对K部分应用RMSNorm
-        k = k.view(-1, self.size_per_head)
+        k = k.reshape(-1, self.size_per_head)
         variance_k = k.pow(2).mean(-1, keepdim=True)
         k = k * torch.rsqrt(variance_k + self.eps)
         k = (self.k_weight * k).to(input_dtype)
@@ -288,4 +252,5 @@ class FusedQKRMSNorm(nn.Module):
         
         # 合并结果
         output = torch.cat([q, k, v], dim=-1)
+        print(f"======output {output.shape=}")
         return output
