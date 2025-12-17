@@ -20,16 +20,16 @@ def print_pymodel_inputs(obj):
     print(f"======{obj.attention_inputs.prefix_lengths.shape=},{obj.attention_inputs.prefix_lengths.dtype=}")
     print(f"======{obj.attention_inputs.sequence_lengths.shape=},{obj.attention_inputs.sequence_lengths.dtype=}")
     print(f"======{obj.attention_inputs.input_lengths.shape=},{obj.attention_inputs.input_lengths.dtype=}")
-    if obj.attention_inputs.kv_cache_block_id_host:
+    if obj.attention_inputs.kv_cache_block_id_host is not None:
         print(f"======{obj.attention_inputs.kv_cache_block_id_host.shape=}, {obj.attention_inputs.kv_cache_block_id_host.dtype=}")
     else:
         print(f"======obj.attention_inputs.kv_cache_block_id_host is None")
-    if obj.attention_inputs.kv_cache_block_id_device:
+    if obj.attention_inputs.kv_cache_block_id_device is not None:
         print(f"======{obj.attention_inputs.kv_cache_block_id_device.shape=}, {obj.attention_inputs.kv_cache_block_id_device.dtype=}")
     else:
         print(f"======obj.attention_inputs.kv_cache_block_id_device is None")
     print(f"======{obj.attention_inputs.is_prefill=}")
-    if obj.attention_inputs.kv_block_offset:
+    if obj.attention_inputs.kv_block_offset is not None:
         print(f"======{obj.attention_inputs.kv_block_offset=}")
     else:
         print(f"======obj.attention_inputs.kv_block_offset is None")
@@ -40,10 +40,10 @@ def print_pymodel_inputs(obj):
     else:
         print(f"======cache_store_inputs: None")
     print(f"====bert_embedding_inputs:")
-    print(f"========{obj.bert_embedding_inputs.combo_position_ids.shape=}, {obj.bert_embedding_inputs.combo_position_ids.dtype=}") if obj.bert_embedding_inputs.combo_position_ids else print("========obj.bert_embedding_inputs.combo_position_ids is None")
-    print(f"========{obj.bert_embedding_inputs.position_encoding.shape=}, {obj.bert_embedding_inputs.position_encoding.dtype=}") if obj.bert_embedding_inputs.position_encoding else print("========obj.bert_embedding_inputs.position_encoding is None")
-    print(f"========{obj.bert_embedding_inputs.combo_tokens_type_ids.shape=}, {obj.bert_embedding_inputs.combo_tokens_type_ids.dtype=}") if obj.bert_embedding_inputs.combo_tokens_type_ids else print("========obj.bert_embedding_inputs.combo_tokens_type_ids is None")
-    print(f"========{obj.bert_embedding_inputs.token_type_embedding.shape=}, {obj.bert_embedding_inputs.token_type_embedding.dtype=}") if obj.bert_embedding_inputs.token_type_embedding else print("========obj.bert_embedding_inputs.token_type_embedding is None")
+    print(f"========{obj.bert_embedding_inputs.combo_position_ids.shape=}, {obj.bert_embedding_inputs.combo_position_ids.dtype=}") if obj.bert_embedding_inputs.combo_position_ids is not None else print("========obj.bert_embedding_inputs.combo_position_ids is None")
+    print(f"========{obj.bert_embedding_inputs.position_encoding.shape=}, {obj.bert_embedding_inputs.position_encoding.dtype=}") if obj.bert_embedding_inputs.position_encoding is not None else print("========obj.bert_embedding_inputs.position_encoding is None")
+    print(f"========{obj.bert_embedding_inputs.combo_tokens_type_ids.shape=}, {obj.bert_embedding_inputs.combo_tokens_type_ids.dtype=}") if obj.bert_embedding_inputs.combo_tokens_type_ids is not None else print("========obj.bert_embedding_inputs.combo_tokens_type_ids is None")
+    print(f"========{obj.bert_embedding_inputs.token_type_embedding.shape=}, {obj.bert_embedding_inputs.token_type_embedding.dtype=}") if obj.bert_embedding_inputs.token_type_embedding is not None else print("========obj.bert_embedding_inputs.token_type_embedding is None")
     print(f"========{obj.bert_embedding_inputs.input_embedding_scalar=}")
 
 

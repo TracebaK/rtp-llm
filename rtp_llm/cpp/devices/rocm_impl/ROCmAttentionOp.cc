@@ -524,7 +524,7 @@ ParamsPtr ROCmDevice::PrepareCKAttn(const AttentionConfigs& configs,
                                     int                     kv_block_offset,
                                     const BufferPtr&        kv_cache_block_id,
                                     int                     batch_size) {
-    RTP_LLM_LOG_DEBUG("PrepareCKAttn: kv_block_offset: %d, batch_size: %d, kv_cache_block_id: %s",
+    RTP_LLM_LOG_WARNING("PrepareCKAttn: kv_block_offset: %d, batch_size: %d, kv_cache_block_id: %s",
                       kv_block_offset,
                       batch_size,
                       kv_cache_block_id ? kv_cache_block_id->debugString().c_str() : "nullptr");

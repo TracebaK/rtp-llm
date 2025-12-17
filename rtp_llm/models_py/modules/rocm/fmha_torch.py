@@ -4,11 +4,11 @@ from typing import Optional, Any, List
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.ops import PyAttentionInputs, FMHAType, KVCache
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
+from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKVCacheDecodeOp
 
-
-#from paged_attention_torch import paged_attention_rocm_torch
-from transformers.utils import is_flash_attn_2_available
-from flash_attn import flash_attn_func
+from vllm import _custom_ops as ops
+#from transformers.utils import is_flash_attn_2_available
+#from flash_attn import flash_attn_func
 
 import os
 # Simple data structure for fmha_params
@@ -256,7 +256,7 @@ class TorchNativeFMHAPrefillImplBase(FMHAImplBase):
     ) -> None:
         super().__init__(
             fmha_impl,
-            TorchNativeRopeKVCachePrefillOp(config.gpt_init_params),
+            FusedRopeKVCachePrefillOp(config.gpt_init_params),
             attn_inputs,
         )
 
@@ -269,7 +269,7 @@ class TorchNativeFMHADecodeImplBase(FMHAImplBase):
     ) -> None:
         super().__init__(
             fmha_impl,
-            TorchNativeRopeKVCacheDecodeOp(config.gpt_init_params),
+            FusedRopeKVCacheDecodeOp(config.gpt_init_params),
             attn_inputs,
         )
 
@@ -443,88 +443,124 @@ class TorchNativeDecodeAttnOp():
         """
         # 获取参数
         seq_lens = fmha_params.seq_lens
+        max_seq_len = fmha_params.max_seq_len + 1
         key_cache = kv_cache.k_cache_base if kv_cache else None
         value_cache = kv_cache.v_cache_base if kv_cache else None
-        print(f"======TorchNativeDecodeAttnOp forward: {key_cache.shape}, {value_cache.shape}") 
+        print(f"======TorchNativeDecodeAttnOp forward: {key_cache.shape=}, {value_cache.shape=}") 
+        print(f"======TorchNativeDecodeAttnOp forward: {query.shape=}, {query.dtype=}")
 
+        block_tables_id_host = fmha_params.kv_cache_block_id_host
         block_tables_id_device = fmha_params.kv_cache_block_id_device
+        num_kv_heads = self.head_num_kv
+        scale = 1.0 / (self.head_dim ** 0.5)
+        alibi_slopes = None
+
+        k_scale = kv_cache.k_scale_base if kv_cache and kv_cache.k_scale_base is not None else 1.0
+        v_scale = kv_cache.v_scale_base if kv_cache and kv_cache.v_scale_base is not None else 1.0
+        max_num_blocks = block_tables_id_device.shape[1]
+
+        num_seqs, num_heads, head_size = query.shape
+        block_size = value_cache.shape[2]
+        _PARTITION_SIZE_ROCM = 256
+
+        # init output
+        output = torch.empty_like(query)
+        print("======{output.shape=}")
+
+        max_num_partitions = (max_seq_len + _PARTITION_SIZE_ROCM - 1) // _PARTITION_SIZE_ROCM
+        assert _PARTITION_SIZE_ROCM % block_size == 0
+        # init tmp_output
+        tmp_output = torch.empty(
+            size=(num_seqs, num_heads, max_num_partitions, head_size),
+            dtype=output.dtype,
+            device=output.device,
+        )
+
+        # init exp_sums
+        exp_sums = torch.empty(
+            size=(num_seqs, num_heads, max_num_partitions),
+            dtype=torch.float32,
+            device=output.device,
+        )
+        fp8_out_scale=None
+        cpa_fp8_out = False
+        # init max_logits
+        max_logits = torch.ones_like(exp_sums)
+
+        kv_cache_dtype ="auto"
+        key_cache_reshaped = key_cache.permute(0,1,3,2)
+        value_cache_reshaped = value_cache.permute(0,1,3,2)
         
-        batch_size, num_heads, head_size = query.shape
-        
-        # 初始化输出张量
-        output = torch.zeros_like(query)
-        
-        # 对于每个序列单独处理
-        for batch_idx in range(batch_size):
-            # 当前序列的实际长度
-            cur_seq_len = seq_lens[batch_idx].item()
-            
-            # 获取当前序列对应的块表
-            block_table = block_tables_id_device[batch_idx]
-            
-            # 从缓存中收集所有的key和value
+        print("======Pytorch paged attention start")
+        # PyTorch实现的paged attention替代方案
+        for seq_idx in range(num_seqs):
+            # 获取当前序列的序列长度
+            cur_seq_len = seq_lens[seq_idx].item()
+
+            # 获取当前序列的块表
+            block_table = block_tables_id_device[seq_idx]
+            print(f"======{block_table=}")
+
+            # 计算需要访问的块数量
+            num_blocks = (cur_seq_len + block_size - 1) // block_size
+            print(f"======{num_blocks=}")
+
+            # 收集所有相关的key和value
             all_keys = []
             all_values = []
-            
-            # 计算需要多少个块
-            block_size = key_cache.shape[2]
-            num_blocks = (cur_seq_len + block_size - 1) // block_size
-            
-            # 从块中收集数据
+
             for block_idx in range(num_blocks):
                 block_id = block_table[block_idx].item()
-                
-                # 从块中获取key和value
-                block_keys = key_cache[block_id]    # {num_kv_heads, head_size, block_size}
-                block_values = value_cache[block_id]  # {num_kv_heads, head_size, block_size}
-                
-                # 转置以得到正确的维度顺序: {block_size, num_kv_heads, head_size}
-                block_keys = block_keys.permute(2, 0, 1)
-                block_values = block_values.permute(2, 0, 1)
-                
-                # 添加到列表中
-                all_keys.append(block_keys)
-                all_values.append(block_values)
-            
-            # 合并所有块的数据
+
+                # 从缓存中提取key和value块
+                # 原始形状: [num_blocks, num_kv_heads, block_size, head_size]
+                k_block = key_cache[block_id]   # [num_kv_heads, block_size, head_size]
+                v_block = value_cache[block_id] # [num_kv_heads, block_size, head_size]
+               
+                # 调整维度顺序为[block_size, num_kv_heads, head_size]
+                k_block = k_block.permute(1, 0, 2)
+                v_block = v_block.permute(1, 0, 2)
+                print(f"======{k_block.shape=}, {v_block.shape=}")
+
+                all_keys.append(k_block)
+                all_values.append(v_block)
+
+            # 合并所有块
             if all_keys:
-                keys = torch.cat(all_keys, dim=0)   # {total_key_len, num_kv_heads, head_size}
-                values = torch.cat(all_values, dim=0)  # {total_key_len, num_kv_heads, head_size}
-                
-                # 取出有效的部分（根据当前序列长度）
-                keys = keys[:cur_seq_len]    # {cur_seq_len, num_kv_heads, head_size}
-                values = values[:cur_seq_len]  # {cur_seq_len, num_kv_heads, head_size}
-                
-                # 处理MQA/GQA情况 - 扩展KV头数以匹配Q
-                if self.head_num != self.head_num_kv:
-                    repeat_factor = self.head_num // self.head_num_kv
-                    keys = keys.repeat_interleave(repeat_factor, dim=1)    # {cur_seq_len, num_heads, head_size}
-                    values = values.repeat_interleave(repeat_factor, dim=1)  # {cur_seq_len, num_heads, head_size}
-                
-                # 获取当前批次的查询向量: {1, num_heads, head_size}
-                cur_query = query[batch_idx:batch_idx+1]  # {1, num_heads, head_size}
-                
-                # 计算注意力分数
-                scale = 1.0 / (head_size ** 0.5)
-                
-                # 计算Q*K^T: {1, num_heads, 1, head_size} * {cur_seq_len, num_heads, head_size, 1}
-                # 结果: {cur_seq_len, num_heads, 1, 1}
-                scores = torch.matmul(
-                    cur_query.unsqueeze(2),  # {1, num_heads, 1, head_size}
-                    keys.transpose(-2, -1).unsqueeze(1)  # {cur_seq_len, 1, head_size, num_heads}
-                ).squeeze(-1)  # {cur_seq_len, num_heads, 1}
-                
-                scores = scores.transpose(0, 1) * scale  # {num_heads, cur_seq_len, 1}
-                scores = scores.squeeze(-1)  # {num_heads, cur_seq_len}
-                
+                keys = torch.cat(all_keys, dim=0)[:cur_seq_len]  # [cur_seq_len, num_kv_heads, head_size]
+                values = torch.cat(all_values, dim=0)[:cur_seq_len]  # [cur_seq_len, num_kv_heads, head_size]
+
+                # 处理MQA/GQA情况 - 如果需要，扩展KV头数以匹配Q头数
+                if num_heads != num_kv_heads:
+                    repeat_factor = num_heads // num_kv_heads
+                    keys = keys.repeat_interleave(repeat_factor, dim=1)    # [cur_seq_len, num_heads, head_size]
+                    values = values.repeat_interleave(repeat_factor, dim=1)  # [cur_seq_len, num_heads, head_size]
+                    print(f"======In GQA: {keys.shape=}, {values.shape=}")
+
+                # 获取当前查询向量
+                q = query[seq_idx:seq_idx+1]  # [1, num_heads, head_size]
+                print(f"======{q.shape=}")
+
+                # 计算注意力分数: Q * K^T
+                # q: [1, num_heads, head_size]
+                # keys: [cur_seq_len, num_heads, head_size]
+                scores = torch.matmul(q.unsqueeze(2), keys.permute(1, 2, 0).unsqueeze(0))  # [1, num_heads, 1, cur_seq_len]
+                scores = scores * scale  # [1, num_heads, cur_seq_len]
+                print(f"=====before mask {scores.shape=}")
+
                 # 计算注意力权重
-                attn_weights = torch.softmax(scores, dim=-1)  # {num_heads, cur_seq_len}
-                
+                triu_mask = torch.triu(torch.full((cur_seq_len, cur_seq_len), True, device=q.device), diagonal=1)[-1:]          # [1, seq_len]
+                scores = scores.masked_fill(triu_mask, float('-inf'))
+                print(f"=====after mask {scores.shape=}")
+                attn_weights = torch.softmax(scores, dim=-1)  # [1, num_heads, cur_seq_len]
+                print(f"====={attn_weights.shape=}")
+
                 # 应用注意力权重到values
-                # {num_heads, cur_seq_len} * {cur_seq_len, num_heads, head_size}
-                weighted_values = attn_weights.unsqueeze(-1) * values.transpose(0, 1)  # {num_heads, cur_seq_len, head_size}
-                output[batch_idx] = weighted_values.sum(dim=1)  # {num_heads, head_size}
-        
-        # 保持输出格式与接口一致
-        output_reshaped = output.view(batch_size, -1)
+                # attn_weights: [1, num_heads, 1, cur_seq_len]
+                # values: [cur_seq_len, num_heads, head_size]
+                result = torch.matmul(attn_weights, values.permute(1, 0, 2).unsqueeze(0)).squeeze(2)  # [1, num_heads, head_size]
+                print("======{result.shape=}")
+                output[seq_idx] = result.squeeze(0)  # [num_heads, head_size]
+
+        output_reshaped = output.view(output.shape[0], -1)
         return output_reshaped
