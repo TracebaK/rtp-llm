@@ -106,20 +106,22 @@ class Qwen3Model(GptModelBase):
     def forward(self, inputs: PyModelInputs) -> PyModelOutputs:
         print_pymodel_inputs(inputs)
         input_ids: torch.Tensor = inputs.input_ids
+        print(f"======{input_ids.detach().cpu().tolist()=}")
         inputs_embeds = self.embed_tokens(input_ids)
-        print(f"============={inputs_embeds.shape=}, {inputs_embeds.dtype=}")
+        embeds = inputs_embeds.flatten()[-20:].detach().cpu().to(torch.float32).tolist()
+        print(f"======{embeds=}")
+        print(f"======{inputs_embeds.shape=}, {inputs_embeds.dtype=}")
         hidden_states = inputs_embeds
-
         attention_inputs: PyAttentionInputs = inputs.attention_inputs
         fmha_impl = self.get_fmha_impl(attention_inputs)
-        print(f"=============Got fmha_impl: {fmha_impl.__class__.__name__}")
         for i, decoder_layer in enumerate(self.layers[: self.layer_num]):
+            print(f"====== Layer {i} ======")
             hidden_states = decoder_layer(
                 hidden_states,
                 fmha_impl,
                 kv_cache=self.kv_cache.get_layer_cache(i) if self.kv_cache else None,
             )
-            print(f"======Qwen3 forward decoder layer {i} done!!!======")
+            print(f"====== Layer {i} output {hidden_states[..., -20:].detach().cpu().tolist()}======")
         hidden_states = self.norm(hidden_states)
         return PyModelOutputs(hidden_states, fmha_impl.fmha_params)
 

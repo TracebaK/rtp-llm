@@ -23,7 +23,6 @@ class CausalAttention(nn.Module):
         self.head_num = config.head_num
         self.num_key_value_groups = config.head_num // config.head_num_kv
         self.q_size = config.head_num * self.head_dim
-        print(f"######## call class CausalAttention(nn.Module) \n")
         # Create linear layers using LinearFactory
         self.qkv_proj = LinearFactory.create_linear_from_weights(
             weights, W.attn_qkv_w, W.attn_qkv_s, W.attn_qkv_b, config
@@ -52,6 +51,7 @@ class CausalAttention(nn.Module):
         print(f"=======CasualAttention forward: {input_shape=}")
         qkv = self.qkv_proj(hidden_states)
         print(f"=======CasualAttention forward after qkv_proj: {qkv.shape=}, {qkv.dtype=}")
+        print(f"------ q={qkv[-1, 2028:2048]}, k={qkv[-1, 3052:3072]}, v={qkv[-1, 4076:4096]}  ------")
         if self.qk_fuse_norm is not None:
             qkv = self.qk_fuse_norm(qkv)
             print(f"=======CasualAttention forward in qk_fuse_norm: {qkv.shape=}, {qkv.dtype=}")

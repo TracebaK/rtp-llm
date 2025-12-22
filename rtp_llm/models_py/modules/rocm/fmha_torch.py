@@ -326,13 +326,10 @@ class TorchNativePrefillAttnOp():
         """
         使用纯PyTorch实现的prefill阶段注意力计算
         """
-        print(f"======TorchNativePrefillAttnOp forward, {fmha_params=}")
-        # q_tensor: {batch_size, head_num, seq_len, head_dim}
-        # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
-        # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
+        print(f"======TorchNativePrefillAttnOp forward")
+
         q_tensor, k_tensor, v_tensor = qkv[0], qkv[1], qkv[2]
         print(f"======TorchNativePrefillAttnOp {q_tensor.shape=}, {k_tensor.shape=}, {v_tensor.shape=}")
-        print(f"======TorchNativePrefillAttnOp {q_tensor.dtype=}, {k_tensor.dtype=}, {v_tensor.dtype=}")
 
         batch_size, head_num, seq_len, head_dim = q_tensor.shape
         seq_len_with_prefix = k_tensor.shape[2]
@@ -346,38 +343,36 @@ class TorchNativePrefillAttnOp():
             k_tensor = k_tensor.repeat_interleave(repeat_factor, dim=1)
             v_tensor = v_tensor.repeat_interleave(repeat_factor, dim=1)
         
-        # 转换维度以适应注意力计算: {batch_size, seq_len, heads, head_dim}
-        q = q_tensor.transpose(1, 2).reshape(batch_size, seq_len, -1)  # {batch_size, seq_len, head_num*head_dim}
-        k = k_tensor.transpose(1, 2).reshape(batch_size, seq_len, -1)  # {batch_size, seq_len_with_prefix, head_num*head_dim}
-        v = v_tensor.transpose(1, 2).reshape(batch_size, seq_len, -1)  # {batch_size, seq_len_with_prefix, head_num*head_dim}
-        print(f"======TorchNativePrefillAttnOp after transpose {q.shape=}, {k.shape=}, {v.shape=}")
+        q = q_tensor  # {B, H, L, D}
+        k = k_tensor  # {B, H, S, D}
+        v = v_tensor  # {B, H, S, D}
 
         # 计算注意力分数
         scale = 1.0 / (head_dim ** 0.5)
-        
-        # 遮罩矩阵 - 因果遮罩 (causal mask)
-        attn_mask = torch.tril(torch.ones(seq_len, seq_len_with_prefix, device=q.device), diagonal=seq_len_with_prefix - seq_len)
-        attn_mask = attn_mask.unsqueeze(0)  # {1, seq_len, seq_len_with_prefix}
-        print(f"======TorchNativePrefillAttnOp {attn_mask.shape=}")
 
         # 计算Q*K^T
         scores = torch.matmul(q, k.transpose(-2, -1)) * scale  # {batch_size, seq_len, head_num, seq_len_with_prefix}
         print(f"======TorchNativePrefillAttnOp after QK {scores.shape=}")
+        
+        # 遮罩矩阵 - 因果遮罩 (causal mask)
+        attn_mask = torch.tril(torch.ones(seq_len, seq_len_with_prefix, device=q.device), diagonal=seq_len_with_prefix - seq_len)
+        attn_mask = attn_mask[None, None, :, :]  # {1, 1, seq_len, seq_len_with_prefix}
+        print(f"======TorchNativePrefillAttnOp {attn_mask.shape=}")
 
         # 应用因果遮罩
         scores = scores.masked_fill(attn_mask == 0, float('-inf'))
         print(f"======TorchNativePrefillAttnOp after mask {scores.shape=}")
 
         # 计算注意力权重
-        attn_weights = torch.softmax(scores, dim=-1)  # {batch_size, seq_len, head_num, seq_len_with_prefix}
+        attn_weights = torch.softmax(scores, dim=-1)  # {batch_size, head_num, seq_len, seq_len_with_prefix}
         
         # 应用注意力权重到V
-        attn_output = torch.matmul(attn_weights, v)  # {batch_size, seq_len, head_num*head_dim}
+        attn_output = torch.matmul(attn_weights, v)  # {batch_size, head_num, seq_len, head_dim}
         print(f"======TorchNativePrefillAttnOp after v mul {attn_output.shape=}")        
         
-        # 转换回原始维度: {batch_size, head_num, seq_len, head_dim}
-        attn_output = attn_output.reshape(batch_size, seq_len, head_num, head_dim)
-        attn_output = attn_output.transpose(1, 2).contiguous()
+        # 转换回原始维度: {batch_size, seq_len, head_num, head_dim}
+        attn_output = attn_output.transpose(1, 2).contiguous() # {B, L, H, D}
+        print(f"======TorchNativePrefillAttnOp output reshape {attn_output.shape=}")
         
         # 重塑输出以匹配期望的格式
         input_lengths = fmha_params.input_lengths
@@ -386,8 +381,8 @@ class TorchNativePrefillAttnOp():
         valid_results = []
         for batch_idx in range(batch_size):
             actual_len = input_lengths[batch_idx].item()
-            batch_result = attn_output[batch_idx, :, :actual_len, :]  # {head_num, actual_len, head_dim}
-            batch_result = batch_result.transpose(0, 1).reshape(actual_len, hidden_size)  # {actual_len, hidden_size}
+            batch_result = attn_output[batch_idx, :actual_len, :, :]  # {head_num, actual_len, head_dim}
+            batch_result = batch_result.reshape(actual_len, hidden_size)  # {actual_len, hidden_size}
             valid_results.append(batch_result)
         
         final_result = torch.cat(valid_results, dim=0)  # {total_token_num, hidden_size}
@@ -443,124 +438,89 @@ class TorchNativeDecodeAttnOp():
         """
         # 获取参数
         seq_lens = fmha_params.seq_lens
-        max_seq_len = fmha_params.max_seq_len + 1
-        key_cache = kv_cache.k_cache_base if kv_cache else None
-        value_cache = kv_cache.v_cache_base if kv_cache else None
-        print(f"======TorchNativeDecodeAttnOp forward: {key_cache.shape=}, {value_cache.shape=}") 
-        print(f"======TorchNativeDecodeAttnOp forward: {query.shape=}, {query.dtype=}")
+        key_cache = kv_cache.k_cache_base
+        value_cache = kv_cache.v_cache_base
+        print(f"======TorchNativeDecodeAttnOp forward: {query.shape=}, {key_cache.shape=}, {value_cache.shape=}") 
 
-        block_tables_id_host = fmha_params.kv_cache_block_id_host
-        block_tables_id_device = fmha_params.kv_cache_block_id_device
+        # 辅助变量
+        block_tables = fmha_params.kv_cache_block_id_device
         num_kv_heads = self.head_num_kv
-        scale = 1.0 / (self.head_dim ** 0.5)
-        alibi_slopes = None
-
-        k_scale = kv_cache.k_scale_base if kv_cache and kv_cache.k_scale_base is not None else 1.0
-        v_scale = kv_cache.v_scale_base if kv_cache and kv_cache.v_scale_base is not None else 1.0
-        max_num_blocks = block_tables_id_device.shape[1]
-
-        num_seqs, num_heads, head_size = query.shape
+        num_q_heads = query.shape[1]
+        head_dim = query.shape[2]
         block_size = value_cache.shape[2]
-        _PARTITION_SIZE_ROCM = 256
+        scale = 1.0 / (self.head_dim ** 0.5)
 
         # init output
         output = torch.empty_like(query)
-        print("======{output.shape=}")
-
-        max_num_partitions = (max_seq_len + _PARTITION_SIZE_ROCM - 1) // _PARTITION_SIZE_ROCM
-        assert _PARTITION_SIZE_ROCM % block_size == 0
-        # init tmp_output
-        tmp_output = torch.empty(
-            size=(num_seqs, num_heads, max_num_partitions, head_size),
-            dtype=output.dtype,
-            device=output.device,
-        )
-
-        # init exp_sums
-        exp_sums = torch.empty(
-            size=(num_seqs, num_heads, max_num_partitions),
-            dtype=torch.float32,
-            device=output.device,
-        )
-        fp8_out_scale=None
-        cpa_fp8_out = False
-        # init max_logits
-        max_logits = torch.ones_like(exp_sums)
-
-        kv_cache_dtype ="auto"
-        key_cache_reshaped = key_cache.permute(0,1,3,2)
-        value_cache_reshaped = value_cache.permute(0,1,3,2)
+        num_seqs = query.shape[0]
         
-        print("======Pytorch paged attention start")
+        print(f"======{seq_idx=}")
         # PyTorch实现的paged attention替代方案
         for seq_idx in range(num_seqs):
             # 获取当前序列的序列长度
             cur_seq_len = seq_lens[seq_idx].item()
 
             # 获取当前序列的块表
-            block_table = block_tables_id_device[seq_idx]
+            block_table = block_tables[seq_idx]
             print(f"======{block_table=}")
 
             # 计算需要访问的块数量
             num_blocks = (cur_seq_len + block_size - 1) // block_size
             print(f"======{num_blocks=}")
 
-            # 收集所有相关的key和value
-            all_keys = []
-            all_values = []
+            # 提取块ID并获取数据
+            block_ids = block_table[:num_blocks] # [num_blocks]
 
-            for block_idx in range(num_blocks):
-                block_id = block_table[block_idx].item()
+            # 使用高级索引一次性取出所有块，避免在循环中逐个取
+            # k_blocks shape: [num_blocks, kv_head_num, block_size, head_dim]
+            k_blocks = key_cache[block_ids] 
+            v_blocks = value_cache[block_ids]
 
-                # 从缓存中提取key和value块
-                # 原始形状: [num_blocks, num_kv_heads, block_size, head_size]
-                k_block = key_cache[block_id]   # [num_kv_heads, block_size, head_size]
-                v_block = value_cache[block_id] # [num_kv_heads, block_size, head_size]
-               
-                # 调整维度顺序为[block_size, num_kv_heads, head_size]
-                k_block = k_block.permute(1, 0, 2)
-                v_block = v_block.permute(1, 0, 2)
-                print(f"======{k_block.shape=}, {v_block.shape=}")
+            # 2. 变换维度以进行拼接
+            # 原状: [num_blocks, kv_head, block_size, dim]
+            # 目标: [num_blocks, block_size, kv_head, dim] -> 展平 -> [total_len, kv_head, dim]
+            # permute(0, 2, 1, 3): 交换 block_size 和 kv_head
+            k_blocks = k_blocks.permute(0, 2, 1, 3) 
+            v_blocks = v_blocks.permute(0, 2, 1, 3)
 
-                all_keys.append(k_block)
-                all_values.append(v_block)
+            # 展平前两维 (Blocks * BlockSize) -> Time
+            # shape: [num_blocks * block_size, kv_head, dim]
+            keys = k_blocks.reshape(-1, num_kv_heads, head_dim)
+            values = v_blocks.reshape(-1, num_kv_heads, head_dim)
+            
+            # 截断 Padding (去掉最后一个块中多余的部分)
+            keys = keys[:cur_seq_len-1]
+            values = values[:cur_seq_len-1]
 
-            # 合并所有块
-            if all_keys:
-                keys = torch.cat(all_keys, dim=0)[:cur_seq_len]  # [cur_seq_len, num_kv_heads, head_size]
-                values = torch.cat(all_values, dim=0)[:cur_seq_len]  # [cur_seq_len, num_kv_heads, head_size]
 
-                # 处理MQA/GQA情况 - 如果需要，扩展KV头数以匹配Q头数
-                if num_heads != num_kv_heads:
-                    repeat_factor = num_heads // num_kv_heads
-                    keys = keys.repeat_interleave(repeat_factor, dim=1)    # [cur_seq_len, num_heads, head_size]
-                    values = values.repeat_interleave(repeat_factor, dim=1)  # [cur_seq_len, num_heads, head_size]
-                    print(f"======In GQA: {keys.shape=}, {values.shape=}")
+            print(f"======{keys.shape=}, {keys[..., -1].detach().cpu().to(torch.float32).tolist()}")
 
-                # 获取当前查询向量
-                q = query[seq_idx:seq_idx+1]  # [1, num_heads, head_size]
-                print(f"======{q.shape=}")
+            # 3. 处理 GQA/MQA (扩展KV头数)
+            if num_q_heads != num_kv_heads:
+                repeat = num_q_heads // num_kv_heads
+                keys = keys.repeat_interleave(repeat, dim=1)   # [seq_len, q_head, dim]
+                values = values.repeat_interleave(repeat, dim=1)
+            print(f"======Pytorch paged attention {keys.shape=}, {values.shape=}")
+        
+            # 4. Attention 计算
+            # q: [1, H, D]
+            q = query[seq_idx:seq_idx+1] 
+            
+            # 计算 Score = Q * K^T
+            # q: [1, H, 1, D]
+            # k: [seq_len, H, D] -> permute -> [1, H, D, seq_len]
+            # score: [1, H, 1, seq_len]
+            scores = torch.matmul(q.unsqueeze(2), keys.permute(1, 2, 0).unsqueeze(0)) * scale
+            
+            # Softmax (Decode阶段不需要 Mask，因为可以看到所有历史)
+            attn_weights = torch.softmax(scores, dim=-1)
+            
+            # 计算 Output = Score * V
+            # weight: [1, H, 1, seq_len]
+            # v: [seq_len, H, D] -> permute -> [1, H, seq_len, D]
+            # out: [1, H, 1, D]
+            attn_out = torch.matmul(attn_weights, values.permute(1, 0, 2).unsqueeze(0))
+            
+            output[seq_idx] = attn_out.squeeze(2).squeeze(0)
 
-                # 计算注意力分数: Q * K^T
-                # q: [1, num_heads, head_size]
-                # keys: [cur_seq_len, num_heads, head_size]
-                scores = torch.matmul(q.unsqueeze(2), keys.permute(1, 2, 0).unsqueeze(0))  # [1, num_heads, 1, cur_seq_len]
-                scores = scores * scale  # [1, num_heads, cur_seq_len]
-                print(f"=====before mask {scores.shape=}")
-
-                # 计算注意力权重
-                triu_mask = torch.triu(torch.full((cur_seq_len, cur_seq_len), True, device=q.device), diagonal=1)[-1:]          # [1, seq_len]
-                scores = scores.masked_fill(triu_mask, float('-inf'))
-                print(f"=====after mask {scores.shape=}")
-                attn_weights = torch.softmax(scores, dim=-1)  # [1, num_heads, cur_seq_len]
-                print(f"====={attn_weights.shape=}")
-
-                # 应用注意力权重到values
-                # attn_weights: [1, num_heads, 1, cur_seq_len]
-                # values: [cur_seq_len, num_heads, head_size]
-                result = torch.matmul(attn_weights, values.permute(1, 0, 2).unsqueeze(0)).squeeze(2)  # [1, num_heads, head_size]
-                print("======{result.shape=}")
-                output[seq_idx] = result.squeeze(0)  # [num_heads, head_size]
-
-        output_reshaped = output.view(output.shape[0], -1)
-        return output_reshaped
+        return output.reshape(num_seqs, -1)
