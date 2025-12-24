@@ -113,6 +113,7 @@ absl::Status NormalExecutor::process(const std::list<GenerateStreamPtr>& streams
     {
         // update kv cache
         if (model_input.kv_cache_update_mapping) {
+	    RTP_LLM_LOG_INFO("update kv cache call");
             cache_manager_->blockBatchCopy(*model_input.kv_cache_update_mapping);
         }
     }
@@ -126,12 +127,13 @@ absl::Status NormalExecutor::process(const std::list<GenerateStreamPtr>& streams
         if (force) {
             RTP_LLM_LOG_INFO("model_input: %s", model_input.debugString(force).c_str());
         } else {
-            RTP_LLM_LOG_DEBUG("model_input: %s", model_input.debugString(force).c_str());
+            RTP_LLM_LOG_INFO("model_input: %s", model_input.debugString(force).c_str());
         }
+	RTP_LLM_LOG_INFO("model forward call");
         int64_t start_time_us               = autil::TimeUtility::currentTimeInMicroSeconds();
         model_output                        = std::move(model_->forward(model_input));
         executor_collector.model_forward_us = autil::TimeUtility::currentTimeInMicroSeconds() - start_time_us;
-        RTP_LLM_LOG_DEBUG("model forward done");
+        RTP_LLM_LOG_INFO("model forward done");
     }
     if (expert_balancer_) {
         int64_t start_time_us = autil::TimeUtility::currentTimeInMicroSeconds();
@@ -146,7 +148,7 @@ absl::Status NormalExecutor::process(const std::list<GenerateStreamPtr>& streams
         CHECK_AND_RETURN_REF(sampler_input,
                              batch_stream_processor_->gatherSamplerInput(stream_groups, model_input, model_output));
         sampler_output = std::move(sampler_->forward(sampler_input));
-        RTP_LLM_LOG_DEBUG("sampler forward done");
+        RTP_LLM_LOG_INFO("sampler forward done");
         executor_collector.sample_input_us = autil::TimeUtility::currentTimeInMicroSeconds() - start_time_us;
     }
     {

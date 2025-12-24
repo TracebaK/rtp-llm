@@ -16,10 +16,10 @@ from rtp_llm.utils.model_weight import W
 
 def print_pymodel_inputs(obj):
     print("=============print PyModelInputs")
-    print(f"===={obj.input_ids.shape=}, {obj.input_ids.dtype=}")
-    print(f"======{obj.attention_inputs.prefix_lengths.shape=},{obj.attention_inputs.prefix_lengths.dtype=}")
-    print(f"======{obj.attention_inputs.sequence_lengths.shape=},{obj.attention_inputs.sequence_lengths.dtype=}")
-    print(f"======{obj.attention_inputs.input_lengths.shape=},{obj.attention_inputs.input_lengths.dtype=}")
+    print(f"===={obj.input_ids.shape=}, {obj.input_ids=}")
+    print(f"======{obj.attention_inputs.prefix_lengths.shape=},{obj.attention_inputs.prefix_lengths=}")
+    print(f"======{obj.attention_inputs.sequence_lengths.shape=},{obj.attention_inputs.sequence_lengths=}")
+    print(f"======{obj.attention_inputs.input_lengths.shape=},{obj.attention_inputs.input_lengths=}")
     if obj.attention_inputs.kv_cache_block_id_host is not None:
         print(f"======{obj.attention_inputs.kv_cache_block_id_host.shape=}, {obj.attention_inputs.kv_cache_block_id_host.dtype=}")
     else:

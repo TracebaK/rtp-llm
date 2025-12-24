@@ -263,8 +263,11 @@ torch::Tensor FusedRopeKVCacheDecodeOp::forward(const torch::Tensor&            
     bool   store_kv    = false;
     bool   store_cache = kv_cache.has_value();
 
-    if (hw_kernel_config_.use_aiter_pa) {
-        // Use the offset_kv_block_array for AITER_PA path
+    printf("store_kv %d\n", store_kv);
+    // if (hw_kernel_config_.use_aiter_pa) {
+    if (true) {
+        printf("store_kv %d\n", store_kv);
+	// Use the offset_kv_block_array for AITER_PA path
         if (params->prefix_lengths.defined() && params->prefix_lengths.numel() > 0) {
             prefix_prompt_param.d_prefix_prompt_lengths  = params->prefix_lengths.data_ptr<int>();
             prefix_prompt_param.max_prefix_prompt_length = params->prefix_lengths.max().item<int>();

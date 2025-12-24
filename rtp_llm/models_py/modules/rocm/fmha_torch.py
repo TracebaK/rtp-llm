@@ -441,6 +441,7 @@ class TorchNativeDecodeAttnOp():
         key_cache = kv_cache.k_cache_base
         value_cache = kv_cache.v_cache_base
         print(f"======TorchNativeDecodeAttnOp forward: {query.shape=}, {key_cache.shape=}, {value_cache.shape=}") 
+        print(f"======{torch.nonzero(key_cache[:, -1, :, -1]).cpu().tolist()=}")
 
         # 辅助变量
         block_tables = fmha_params.kv_cache_block_id_device
@@ -454,7 +455,7 @@ class TorchNativeDecodeAttnOp():
         output = torch.empty_like(query)
         num_seqs = query.shape[0]
         
-        print(f"======{seq_idx=}")
+        print(f"======{seq_lens=}")
         # PyTorch实现的paged attention替代方案
         for seq_idx in range(num_seqs):
             # 获取当前序列的序列长度
@@ -489,8 +490,8 @@ class TorchNativeDecodeAttnOp():
             values = v_blocks.reshape(-1, num_kv_heads, head_dim)
             
             # 截断 Padding (去掉最后一个块中多余的部分)
-            keys = keys[:cur_seq_len-1]
-            values = values[:cur_seq_len-1]
+            keys = keys[:cur_seq_len]
+            values = values[:cur_seq_len]
 
 
             print(f"======{keys.shape=}, {keys[..., -1].detach().cpu().to(torch.float32).tolist()}")

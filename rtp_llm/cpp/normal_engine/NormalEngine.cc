@@ -50,10 +50,10 @@ NormalEngine::NormalEngine(const EngineInitParams& params):
     RTP_LLM_LOG_INFO("create normal executor done");
     initScheduler();
     (void)startLoop();
-    if (device_->getDeviceProperties().tp_rank == 0 && !params_.ffn_disaggregate_config.is_ffn_service()
-        && scheduler_->canLoadBalance()) {
-        initLoadBalance();
-    }
+    // if (device_->getDeviceProperties().tp_rank == 0 && !params_.ffn_disaggregate_config.is_ffn_service()
+    //    && scheduler_->canLoadBalance()) {
+    //    initLoadBalance();
+    // }
 }
 
 void NormalEngine::initScheduler() {
