@@ -55,6 +55,20 @@ try:
         return _get_group(group).all_gather([tensor])[0]
 
 except ImportError:
+    import os
+    import sys
+    def print_env_info():
+        print("-" * 30)
+        print("--- 运行环境检查 ---")
+        # 打印 PYTHONPATH
+        print(f"PYTHONPATH: {os.environ.get('PYTHONPATH', 'Not Set')}")
+        # 打印 sys.path (Python 实际搜索路径)
+        print(f"sys.path: {sys.path}")
+        # 打印 LD_LIBRARY_PATH
+        print(f"LD_LIBRARY_PATH: {os.environ.get('LD_LIBRARY_PATH', 'Not Set')}")
+        print("-" * 30)
+
+    print_env_info()
     logging.info("RtpProcessGroup not available, skipped. Defining dummy functions.")
 
     def _raise_error_on_call(*args, **kwargs):
