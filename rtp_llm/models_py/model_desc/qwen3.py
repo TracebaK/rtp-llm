@@ -10,6 +10,7 @@ from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm
 from rtp_llm.models_py.modules.attention import CausalAttention
 from rtp_llm.models_py.modules.embedding import Embedding
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
+from rtp_llm.distribute.collective import Group, all_reduce
 from rtp_llm.ops import KVCache, PyAttentionInputs, PyModelInputs, PyModelOutputs
 from rtp_llm.utils.model_weight import W
 
@@ -60,6 +61,7 @@ class Qwen3DecoderLayer(nn.Module):
         self.post_attention_layernorm = RMSNorm(
             weights[W.post_ln_gamma], eps=config.layernorm_eps
         )
+        self.config = config
 
     def forward(
         self,
@@ -68,23 +70,25 @@ class Qwen3DecoderLayer(nn.Module):
         kv_cache: Optional[KVCache] = None,
     ) -> torch.Tensor:
         residual = hidden_states
-        print(f"=======Qwen3DecoderLayer forward: {residual.shape=}, {residual.dtype=}")
+        print(f"======Qwen3DecoderLayer forward: {residual.shape=}, {residual.dtype=}")
         hidden_states = self.input_layernorm(hidden_states)
         
-        print(f"=======Qwen3DecoderLayer forward: {hidden_states.shape=}, {hidden_states.dtype=}")
+        print(f"======Qwen3DecoderLayer forward: {hidden_states.shape=}, {hidden_states.dtype=}")
         # Self Attention
         hidden_states = self.self_attn(
             hidden_states=hidden_states, fmha_impl=fmha_impl, kv_cache=kv_cache
         )
-        print(f"=======Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
+        print(f"======Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
         hidden_states = residual + hidden_states
 
         # Fully Connected
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
+        if self.config.tp_size > 1:
+            hidden_states = all_reduce(hidden_states, group=Group.TP) # 第二次同步
         hidden_states = residual + hidden_states
-        print(f"=======Qwen3DecoderLayer forward after ffn: {hidden_states.shape=}, {hidden_states.dtype=}")
+        print(f"======Qwen3DecoderLayer forward after ffn: {hidden_states.shape=}, {hidden_states.dtype=}")
         return hidden_states
 
 
@@ -106,22 +110,21 @@ class Qwen3Model(GptModelBase):
     def forward(self, inputs: PyModelInputs) -> PyModelOutputs:
         print_pymodel_inputs(inputs)
         input_ids: torch.Tensor = inputs.input_ids
-        print(f"======{input_ids.detach().cpu().tolist()=}")
+        print(f"==={input_ids.detach().cpu().tolist()=}")
         inputs_embeds = self.embed_tokens(input_ids)
-        embeds = inputs_embeds.flatten()[-20:].detach().cpu().to(torch.float32).tolist()
-        print(f"======{embeds=}")
-        print(f"======{inputs_embeds.shape=}, {inputs_embeds.dtype=}")
+        print(f"===embeds: {inputs_embeds.flatten()[-20:].detach().cpu().to(torch.float32).tolist()}")
+        print(f"==={inputs_embeds.shape=}, {inputs_embeds.dtype=}")
         hidden_states = inputs_embeds
         attention_inputs: PyAttentionInputs = inputs.attention_inputs
         fmha_impl = self.get_fmha_impl(attention_inputs)
         for i, decoder_layer in enumerate(self.layers[: self.layer_num]):
-            print(f"====== Layer {i} ======")
+            print(f"=== Layer {i} ===")
             hidden_states = decoder_layer(
                 hidden_states,
                 fmha_impl,
                 kv_cache=self.kv_cache.get_layer_cache(i) if self.kv_cache else None,
             )
-            print(f"====== Layer {i} output {hidden_states[..., -20:].detach().cpu().tolist()}======")
+            print(f"=== Layer {i} output {hidden_states.flatten()[-20:].detach().cpu().tolist()}===")
         hidden_states = self.norm(hidden_states)
         return PyModelOutputs(hidden_states, fmha_impl.fmha_params)
 

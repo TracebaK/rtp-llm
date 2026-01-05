@@ -440,12 +440,12 @@ class TorchNativeDecodeAttnOp():
         seq_lens = fmha_params.seq_lens
         key_cache = kv_cache.k_cache_base
         value_cache = kv_cache.v_cache_base
-        print(f"======TorchNativeDecodeAttnOp forward: {query.shape=}, {key_cache.shape=}, {value_cache.shape=}") 
-        print(f"======{torch.nonzero(key_cache[:, -1, :, -1]).cpu().tolist()=}")
+        print(f"==========TorchNativeDecodeAttnOp forward: {query.shape=}, {key_cache.shape=}, {value_cache.shape=}") 
+        print(f"=========={torch.nonzero(key_cache[:, -1, :, -1]).cpu().tolist()=}")
 
         # 辅助变量
         block_tables = fmha_params.kv_cache_block_id_device
-        num_kv_heads = self.head_num_kv
+        num_kv_heads = key_cache.shape[1]
         num_q_heads = query.shape[1]
         head_dim = query.shape[2]
         block_size = value_cache.shape[2]
@@ -455,7 +455,7 @@ class TorchNativeDecodeAttnOp():
         output = torch.empty_like(query)
         num_seqs = query.shape[0]
         
-        print(f"======{seq_lens=}")
+        print(f"=========={seq_lens=}")
         # PyTorch实现的paged attention替代方案
         for seq_idx in range(num_seqs):
             # 获取当前序列的序列长度
@@ -463,11 +463,11 @@ class TorchNativeDecodeAttnOp():
 
             # 获取当前序列的块表
             block_table = block_tables[seq_idx]
-            print(f"======{block_table=}")
+            print(f"=========={block_table=}")
 
             # 计算需要访问的块数量
             num_blocks = (cur_seq_len + block_size - 1) // block_size
-            print(f"======{num_blocks=}")
+            print(f"=========={num_blocks=}")
 
             # 提取块ID并获取数据
             block_ids = block_table[:num_blocks] # [num_blocks]
@@ -494,14 +494,14 @@ class TorchNativeDecodeAttnOp():
             values = values[:cur_seq_len]
 
 
-            print(f"======{keys.shape=}, {keys[..., -1].detach().cpu().to(torch.float32).tolist()}")
+            print(f"=========={keys.shape=}, {keys[..., -1].detach().cpu().to(torch.float32).tolist()}")
 
             # 3. 处理 GQA/MQA (扩展KV头数)
             if num_q_heads != num_kv_heads:
                 repeat = num_q_heads // num_kv_heads
                 keys = keys.repeat_interleave(repeat, dim=1)   # [seq_len, q_head, dim]
                 values = values.repeat_interleave(repeat, dim=1)
-            print(f"======Pytorch paged attention {keys.shape=}, {values.shape=}")
+            print(f"==========Pytorch paged attention {keys.shape=}, {values.shape=}")
         
             # 4. Attention 计算
             # q: [1, H, D]
