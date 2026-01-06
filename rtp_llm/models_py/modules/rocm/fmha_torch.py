@@ -10,7 +10,8 @@ from vllm import _custom_ops as ops
 #from transformers.utils import is_flash_attn_2_available
 #from flash_attn import flash_attn_func
 
-import os
+logger = logging.getLogger(__name__)
+
 # Simple data structure for fmha_params
 class FMHAParams:
     def __init__(self, batch_size: int, max_seq_len: int , seq_lens: Optional[torch.Tensor] = None,
@@ -24,228 +25,6 @@ class FMHAParams:
         self.kv_cache_block_id_device = kv_cache_block_id_device
         self.input_lengths = input_lengths
 
-
-class TorchNativeRopeKVCachePrefillOp:
-    def __init__(self, gpt_init_params):
-        self.gpt_init_params = gpt_init_params
-        self.rope_config = getattr(gpt_init_params, 'rope_config', None)
-        
-    def prepare(self, attn_inputs):
-        batch_size = attn_inputs.input_lengths.size(0)
-        max_seq_len = attn_inputs.input_lengths.max().item()
-        
-        # Create and return fmha_params with the required attributes
-        self.fmha_params = FMHAParams(
-            batch_size=batch_size,
-            max_seq_len=max_seq_len,
-            input_lengths=attn_inputs.input_lengths
-        )
-        return self.fmha_params
-    
-    def forward(self, qkv, fmha_type, kv_cache, params):
-        print("TorchNativeRopeKVCachePrefillOp.forward called")
-        # Extract Q, K, V from qkv
-        # qkv is expected to be of shape [token_num, head_num * 3 * size_per_head]
-        batch_size = params.batch_size
-        max_seq_len = params.max_seq_len
-        
-        # Reshape qkv to separate Q, K, V
-        print(f"TorchNativeRopeKVCachePrefillOp {self.gpt_init_params=}")
-        head_num = self.gpt_init_params.head_num if hasattr(self.gpt_init_params, 'head_num') else 32
-        head_num_kv = getattr(self.gpt_init_params, 'head_num_kv', head_num)
-        size_per_head = getattr(self.gpt_init_params, 'size_per_head', 128)
-        
-        # Reshape to separate Q, K, V
-        qkv_reshaped = qkv.view(-1, head_num + 2 * head_num_kv, size_per_head)
-        token_num = qkv_reshaped.size(0)
-        
-        # Separate Q, K, V
-        q = qkv_reshaped[:, :head_num, :]  # [token_num, head_num, size_per_head]
-        k = qkv_reshaped[:, head_num:head_num + head_num_kv, :]  # [token_num, head_num_kv, size_per_head]
-        v = qkv_reshaped[:, head_num + head_num_kv:, :]  # [token_num, head_num_kv, size_per_head]
-        
-        # Reshape to 4D tensors [batch_size, head_num, seq_len, size_per_head]
-        # We need to split tokens according to input_lengths
-        input_lengths = params.input_lengths
-        cu_seqlens = torch.cat([torch.tensor([0]), input_lengths.cumsum(0)])
-        
-        # Create output tensors
-        q_output = torch.zeros(batch_size, head_num, max_seq_len, size_per_head, 
-                              dtype=q.dtype, device=q.device)
-        k_output = torch.zeros(batch_size, head_num_kv, max_seq_len, size_per_head, 
-                              dtype=k.dtype, device=k.device)
-        v_output = torch.zeros(batch_size, head_num_kv, max_seq_len, size_per_head, 
-                              dtype=v.dtype, device=v.device)
-        
-        # Fill tensors based on cu_seqlens
-        for i in range(batch_size):
-            start_idx = cu_seqlens[i]
-            end_idx = cu_seqlens[i+1]
-            seq_len = end_idx - start_idx
-            
-            # Copy Q, K, V for this batch
-            q_output[i, :, :seq_len, :] = q[start_idx:end_idx].transpose(0, 1)
-            k_output[i, :, :seq_len, :] = k[start_idx:end_idx].transpose(0, 1)
-            v_output[i, :, :seq_len, :] = v[start_idx:end_idx].transpose(0, 1)
-            
-        # Apply RoPE if configured
-        if self.rope_config is not None:
-            q_output, k_output = self._apply_rope(q_output, k_output, max_seq_len)
-        
-        # Store to KV cache if needed
-        if kv_cache is not None:
-            self._store_kv_cache(k_output, v_output, kv_cache, params)
-        
-        return (q_output, k_output, v_output)
-    
-    def _apply_rope(self, q, k, max_seq_len):
-        """Apply rotary position embedding to Q and K tensors"""
-        batch_size, head_num, seq_len, head_dim = q.shape
-        _, head_num_kv, _, _ = k.shape
-        
-        # Create position indices
-        position_ids = torch.arange(seq_len, device=q.device).unsqueeze(0).expand(batch_size, -1)
-        
-        # Create cos/sin caches
-        cos, sin = self._create_cos_sin_cache(seq_len, head_dim, device=q.device)
-        
-        # Apply RoPE
-        q_embed = self._rotate_qk(q, cos, sin, position_ids)
-        k_embed = self._rotate_qk(k, cos, sin, position_ids)
-        
-        return q_embed, k_embed
-    
-    def _create_cos_sin_cache(self, seq_len, head_dim, device='cuda', base=10000):
-        """Creates cos and sin caches for rotary positional embeddings"""
-        position = torch.arange(seq_len, dtype=torch.float32, device=device)
-        inv_freq = 1.0 / (base ** (torch.arange(0, head_dim, 2, dtype=torch.float32, device=device) / head_dim))
-        freqs = torch.outer(position, inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1)
-        cos_cache = emb.cos()
-        sin_cache = emb.sin()
-        return cos_cache, sin_cache
-    
-    def _rotate_qk(self, x, cos, sin, position_ids):
-        """Rotate query/key tensors with cos/sin caches"""
-        batch_size, num_heads, seq_len, head_dim = x.shape
-        
-        # Handle position_ids
-        cos = cos[position_ids].unsqueeze(2)  # [batch_size, seq_len, 1, head_dim]
-        sin = sin[position_ids].unsqueeze(2)  # [batch_size, seq_len, 1, head_dim]
-        
-        # Split tensor into two halves
-        x1 = x[..., :head_dim // 2]
-        x2 = x[..., head_dim // 2:]
-        
-        # Apply rotation
-        rotated = torch.cat((-x2, x1), dim=-1)
-        
-        # Apply RoPE transformation
-        x_out = (x * cos) + (rotated * sin)
-        return x_out
-    
-    def _store_kv_cache(self, k, v, kv_cache, params):
-        """Store K and V to KV cache"""
-        # In a full implementation, this would handle storing to the paged KV cache
-        # For now, we'll leave this as a placeholder
-        pass
-
-class TorchNativeRopeKVCacheDecodeOp:
-    def __init__(self, gpt_init_params):
-        self.gpt_init_params = gpt_init_params
-        self.rope_config = getattr(gpt_init_params, 'rope_config', None)
-        
-    def prepare(self, attn_inputs):
-        batch_size = attn_inputs.sequence_lengths.size(0)
-        max_seq_len = attn_inputs.input_lengths.max().item()
-        seq_lens = attn_inputs.sequence_lengths.cpu() + 1
-        seq_lens = seq_lens.cuda()
-        kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
-        kv_cache_block_id_device = attn_inputs.kv_cache_block_id_device
-        
-        # Create and return fmha_params with the required attributes
-        self.fmha_params = FMHAParams(
-            batch_size=batch_size,
-            max_seq_len=max_seq_len,
-            seq_lens=seq_lens,
-            kv_cache_block_id_host=kv_cache_block_id_host,
-            kv_cache_block_id_device=kv_cache_block_id_device,
-            input_lengths=attn_inputs.input_lengths
-        )
-        return self.fmha_params
-    
-    def forward(self, qkv, fmha_type, kv_cache, params):
-        # For decode, qkv contains only the new token's QKV
-        head_num = self.gpt_init_params.head_num if hasattr(self.gpt_init_params, 'head_num') else 32
-        head_num_kv = getattr(self.gpt_init_params, 'head_num_kv', head_num)
-        size_per_head = getattr(self.gpt_init_params, 'size_per_head', 128)
-        
-        # Reshape qkv to separate Q, K, V
-        qkv_reshaped = qkv.view(-1, head_num + 2 * head_num_kv, size_per_head)
-        token_num = qkv_reshaped.size(0)
-        
-        # Separate Q, K, V
-        q = qkv_reshaped[:, :head_num, :]  # [token_num, head_num, size_per_head]
-        k = qkv_reshaped[:, head_num:head_num + head_num_kv, :]  # [token_num, head_num_kv, size_per_head]
-        v = qkv_reshaped[:, head_num + head_num_kv:, :]  # [token_num, head_num_kv, size_per_head]
-        
-        # For decode, we typically have token_num == batch_size
-        batch_size = token_num
-        
-        # Reshape to 3D tensors [batch_size, head_num, size_per_head]
-        q_output = q.view(batch_size, head_num, size_per_head)
-        
-        # Apply RoPE to query if configured
-        if self.rope_config is not None:
-            q_output = self._apply_rope_decode(q_output, params.seq_lens)
-        
-        # Store K,V to cache if needed
-        if kv_cache is not None:
-            self._store_kv_cache_decode(k, v, kv_cache, params)
-        
-        return q_output
-    
-    def _apply_rope_decode(self, q, seq_lens):
-        """Apply rotary position embedding to Q tensor during decode"""
-        batch_size, head_num, head_dim = q.shape
-        
-        # Get current positions
-        position_ids = (seq_lens - 1).unsqueeze(1)  # [batch_size, 1]
-        
-        # Create cos/sin caches
-        max_pos = seq_lens.max().item()
-        cos, sin = self._create_cos_sin_cache(max_pos, head_dim, device=q.device)
-        
-        # Apply RoPE
-        cos = cos[position_ids].unsqueeze(2)  # [batch_size, 1, 1, head_dim]
-        sin = sin[position_ids].unsqueeze(2)  # [batch_size, 1, 1, head_dim]
-        
-        # Split tensor into two halves
-        q1 = q[..., :head_dim // 2]
-        q2 = q[..., head_dim // 2:]
-        
-        # Apply rotation
-        rotated = torch.cat((-q2, q1), dim=-1)
-        
-        # Apply RoPE transformation
-        q_out = (q * cos.squeeze(1)) + (rotated * sin.squeeze(1))
-        return q_out
-    
-    def _create_cos_sin_cache(self, seq_len, head_dim, device='cuda', base=10000):
-        """Creates cos and sin caches for rotary positional embeddings"""
-        position = torch.arange(seq_len, dtype=torch.float32, device=device)
-        inv_freq = 1.0 / (base ** (torch.arange(0, head_dim, 2, dtype=torch.float32, device=device) / head_dim))
-        freqs = torch.outer(position, inv_freq)
-        emb = torch.cat((freqs, freqs), dim=-1)
-        cos_cache = emb.cos()
-        sin_cache = emb.sin()
-        return cos_cache, sin_cache
-    
-    def _store_kv_cache_decode(self, k, v, kv_cache, params):
-        """Store K and V to KV cache during decode"""
-        # In a full implementation, this would handle storing to the paged KV cache
-        # For now, we'll leave this as a placeholder
-        pass
 
 class TorchNativeFMHAPrefillImplBase(FMHAImplBase):
     def __init__(
@@ -326,10 +105,10 @@ class TorchNativePrefillAttnOp():
         """
         使用纯PyTorch实现的prefill阶段注意力计算
         """
-        print(f"======TorchNativePrefillAttnOp forward")
+        logger.debug(f"****TorchNativePrefillAttnOp forward****")
 
         q_tensor, k_tensor, v_tensor = qkv[0], qkv[1], qkv[2]
-        print(f"======TorchNativePrefillAttnOp {q_tensor.shape=}, {k_tensor.shape=}, {v_tensor.shape=}")
+        logger.debug(f"{q_tensor.shape=}, {k_tensor.shape=}, {v_tensor.shape=}")
 
         batch_size, head_num, seq_len, head_dim = q_tensor.shape
         seq_len_with_prefix = k_tensor.shape[2]
@@ -352,27 +131,27 @@ class TorchNativePrefillAttnOp():
 
         # 计算Q*K^T
         scores = torch.matmul(q, k.transpose(-2, -1)) * scale  # {batch_size, seq_len, head_num, seq_len_with_prefix}
-        print(f"======TorchNativePrefillAttnOp after QK {scores.shape=}")
+        logger.debug(f"after QK {scores.shape=}")
         
         # 遮罩矩阵 - 因果遮罩 (causal mask)
         attn_mask = torch.tril(torch.ones(seq_len, seq_len_with_prefix, device=q.device), diagonal=seq_len_with_prefix - seq_len)
         attn_mask = attn_mask[None, None, :, :]  # {1, 1, seq_len, seq_len_with_prefix}
-        print(f"======TorchNativePrefillAttnOp {attn_mask.shape=}")
+        logger.debug(f"{attn_mask.shape=}")
 
         # 应用因果遮罩
         scores = scores.masked_fill(attn_mask == 0, float('-inf'))
-        print(f"======TorchNativePrefillAttnOp after mask {scores.shape=}")
+        logger.debug(f"after mask {scores.shape=}")
 
         # 计算注意力权重
         attn_weights = torch.softmax(scores, dim=-1)  # {batch_size, head_num, seq_len, seq_len_with_prefix}
         
         # 应用注意力权重到V
         attn_output = torch.matmul(attn_weights, v)  # {batch_size, head_num, seq_len, head_dim}
-        print(f"======TorchNativePrefillAttnOp after v mul {attn_output.shape=}")        
+        logger.debug(f"after v mul {attn_output.shape=}")        
         
         # 转换回原始维度: {batch_size, seq_len, head_num, head_dim}
         attn_output = attn_output.transpose(1, 2).contiguous() # {B, L, H, D}
-        print(f"======TorchNativePrefillAttnOp output reshape {attn_output.shape=}")
+        logger.debug(f"output reshape {attn_output.shape=}")
         
         # 重塑输出以匹配期望的格式
         input_lengths = fmha_params.input_lengths
@@ -386,7 +165,7 @@ class TorchNativePrefillAttnOp():
             valid_results.append(batch_result)
         
         final_result = torch.cat(valid_results, dim=0)  # {total_token_num, hidden_size}
-        print(f"======TorchNativePrefillAttnOp before return {final_result.shape=}")        
+        logger.debug(f"before return {final_result.shape=}")        
         return final_result
 
 try:
@@ -440,8 +219,8 @@ class TorchNativeDecodeAttnOp():
         seq_lens = fmha_params.seq_lens
         key_cache = kv_cache.k_cache_base
         value_cache = kv_cache.v_cache_base
-        print(f"==========TorchNativeDecodeAttnOp forward: {query.shape=}, {key_cache.shape=}, {value_cache.shape=}") 
-        print(f"=========={torch.nonzero(key_cache[:, -1, :, -1]).cpu().tolist()=}")
+        logger.debug(f"==========TorchNativeDecodeAttnOp forward: {query.shape=}, {key_cache.shape=}, {value_cache.shape=}") 
+        logger.debug(f"=========={torch.nonzero(key_cache[:, -1, :, -1]).cpu().tolist()=}")
 
         # 辅助变量
         block_tables = fmha_params.kv_cache_block_id_device
@@ -455,7 +234,7 @@ class TorchNativeDecodeAttnOp():
         output = torch.empty_like(query)
         num_seqs = query.shape[0]
         
-        print(f"=========={seq_lens=}")
+        logger.debug(f"=========={seq_lens=}")
         # PyTorch实现的paged attention替代方案
         for seq_idx in range(num_seqs):
             # 获取当前序列的序列长度
@@ -463,11 +242,11 @@ class TorchNativeDecodeAttnOp():
 
             # 获取当前序列的块表
             block_table = block_tables[seq_idx]
-            print(f"=========={block_table=}")
+            logger.debug(f"=========={block_table=}")
 
             # 计算需要访问的块数量
             num_blocks = (cur_seq_len + block_size - 1) // block_size
-            print(f"=========={num_blocks=}")
+            logger.debug(f"=========={num_blocks=}")
 
             # 提取块ID并获取数据
             block_ids = block_table[:num_blocks] # [num_blocks]
@@ -494,14 +273,14 @@ class TorchNativeDecodeAttnOp():
             values = values[:cur_seq_len]
 
 
-            print(f"=========={keys.shape=}, {keys[..., -1].detach().cpu().to(torch.float32).tolist()}")
+            logger.debug(f"=========={keys.shape=}, {keys[..., -1].detach().cpu().to(torch.float32).tolist()}")
 
             # 3. 处理 GQA/MQA (扩展KV头数)
             if num_q_heads != num_kv_heads:
                 repeat = num_q_heads // num_kv_heads
                 keys = keys.repeat_interleave(repeat, dim=1)   # [seq_len, q_head, dim]
                 values = values.repeat_interleave(repeat, dim=1)
-            print(f"==========Pytorch paged attention {keys.shape=}, {values.shape=}")
+            logger.debug(f"==========Pytorch paged attention {keys.shape=}, {values.shape=}")
         
             # 4. Attention 计算
             # q: [1, H, D]

@@ -1,4 +1,5 @@
 from typing import Tuple, Union
+import logging
 
 import torch
 import torch.nn.functional as F
@@ -9,6 +10,10 @@ from torch import nn
 
 from rtp_llm.models_py.modules.norm import BaseNorm
 from lightop import op
+
+
+logger = logging.getLogger(__name__)
+
 
 class BaseLayerNorm(torch.nn.Module):
     def __init__(self, weight: torch.Tensor, beta: torch.Tensor, eps: float = 1e-6):
@@ -71,7 +76,7 @@ class RMSNorm(BaseNorm):
         super().__init__(weight, eps)
 
     def forward(self, hidden_states: torch.Tensor):
-        print(f"======RMSNorm {hidden_states.shape}, {hidden_states.dtype}")
+        logger.debug(f"======RMSNorm {hidden_states.shape}, {hidden_states.dtype}")
         input_dtype = hidden_states.dtype
         variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
@@ -226,7 +231,7 @@ class FusedQKRMSNorm(nn.Module):
         self.kv_size = self.kv_head_num * self.size_per_head
 
     def forward(self, hidden_states):
-        print(f"======FusedQKRMSNorm called, {hidden_states.shape=}, {hidden_states.dtype=}")
+        logger.debug(f"FusedQKRMSNorm forward: {hidden_states.shape=}, {hidden_states.dtype=}")
         # 保存原始数据类型
         input_dtype = hidden_states.dtype
         
@@ -235,7 +240,7 @@ class FusedQKRMSNorm(nn.Module):
         
         # 分离Q、K、V部分
         q, k, v = hidden_states.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
-        print(f"======After split {q.shape=}, {k.shape=}, {v.shape=}") 
+        logger.debug(f"FusedQKRMSNorm forward: {q.shape=}, {k.shape=}, {v.shape=}") 
         # 对Q部分应用RMSNorm
         q = q.reshape(-1, self.size_per_head)
         variance_q = q.pow(2).mean(-1, keepdim=True)
@@ -252,5 +257,5 @@ class FusedQKRMSNorm(nn.Module):
         
         # 合并结果
         output = torch.cat([q, k, v], dim=-1)
-        print(f"======output {output.shape=}")
+        logger.debug(f"FusedQKRMSNorm forward: output {output.shape=}")
         return output
