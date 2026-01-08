@@ -226,7 +226,6 @@ torch::Tensor FusedRopeKVCacheDecodeOp::forward(const torch::Tensor&            
                                                 const CKAttnPtr&                  params) {
     // Check that kv_cache is provided
     // (CUDA version uses RTP_LLM_CHECK_WITH_INFO, use assert or similar if not available)
-    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     assert(kv_cache.has_value() && "decode should have kv cache.");
     auto kv_block_array            = params->kv_block_array;
     kv_block_array.mPrimaryPoolPtr = kv_cache.value().k_cache_base.data_ptr();
@@ -263,10 +262,8 @@ torch::Tensor FusedRopeKVCacheDecodeOp::forward(const torch::Tensor&            
     bool   store_kv    = false;
     bool   store_cache = kv_cache.has_value();
 
-    printf("store_kv %d\n", store_kv);
     // if (hw_kernel_config_.use_aiter_pa) {
     if (true) {
-        printf("store_kv %d\n", store_kv);
 	// Use the offset_kv_block_array for AITER_PA path
         if (params->prefix_lengths.defined() && params->prefix_lengths.numel() > 0) {
             prefix_prompt_param.d_prefix_prompt_lengths  = params->prefix_lengths.data_ptr<int>();

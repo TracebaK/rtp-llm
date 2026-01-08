@@ -4,7 +4,6 @@ import logging.config
 import os
 import sys
 
-print("*********************************rtp_llm")
 
 LOGLEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 if LOGLEVEL == "TRACE":

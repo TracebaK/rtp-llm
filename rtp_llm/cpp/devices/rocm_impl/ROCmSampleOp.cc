@@ -19,7 +19,7 @@ using SamplerT = float;
 // topk should has higher proirity than topp.
 
 GreedyOutput ROCmDevice::sampleGreedy(const GreedyParams& params) {
-    RTP_LLM_LOG_INFO("ROCmDevice::sampleGreedy");
+    // RTP_LLM_LOG_INFO("ROCmDevice::sampleGreedy");
     const auto& logits     = params.logits;
     const auto  batch_size = logits.shape()[0];
     RUNTIME_ASSERT_OP_ARG(batch_size < init_params_.max_batch_size,
@@ -336,12 +336,12 @@ GreedyOutput ROCmDevice::sampleGreedy(const GreedyParams& params) {
     copy({params.token_ids, *output_tokens});
     check_cuda_error();
     // 打印最终的token_ids
-    RTP_LLM_LOG_INFO("Final token IDs after sampling:");
+    // RTP_LLM_LOG_INFO("Final token IDs after sampling:");
     torch::Tensor final_tokens = Buffer2torchTensor(params.token_ids, false);
     for (int batch_idx = 0; batch_idx < final_tokens.size(0); ++batch_idx) {
         for (int seq_idx = 0; seq_idx < final_tokens.size(1); ++seq_idx) {
             int token_id = final_tokens[batch_idx][seq_idx].item<int>();
-            RTP_LLM_LOG_INFO("  Batch[%d][%d]: token_id=%d", batch_idx, seq_idx, token_id);
+    //        RTP_LLM_LOG_INFO("  Batch[%d][%d]: token_id=%d", batch_idx, seq_idx, token_id);
         }
     }
     return GreedyOutput{};

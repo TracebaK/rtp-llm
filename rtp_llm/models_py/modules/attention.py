@@ -1,4 +1,5 @@
 from typing import Dict, Optional
+import logging
 
 import torch
 import torch.nn as nn
@@ -10,6 +11,9 @@ from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.models_py.modules.linear_factory import LinearFactory
 from rtp_llm.ops import KVCache
 from rtp_llm.utils.model_weight import W
+
+
+logger = logging.getLogger(__name__)
 
 
 class CausalAttention(nn.Module):
@@ -48,20 +52,20 @@ class CausalAttention(nn.Module):
         kv_cache: Optional[KVCache],
     ) -> torch.Tensor:
         input_shape = hidden_states.shape[:-1]
-        print(f"========CasualAttention forward: {input_shape=}")
+        logger.debug(f"CasualAttention forward: {input_shape=}")
         qkv = self.qkv_proj(hidden_states)
-        print(f"========CasualAttention forward after qkv_proj: {qkv.shape=}, {qkv.dtype=}")
-        print(f"========q={qkv[-1, 2028:2048]}, k={qkv[-1, 3052:3072]}, v={qkv[-1, 4076:4096]}")
+        logger.debug(f"CasualAttention forward after qkv_proj: {qkv.shape=}, {qkv.dtype=}")
+        # logger.debug(f"========q={qkv[-1, 2028:2048]}, k={qkv[-1, 3052:3072]}, v={qkv[-1, 4076:4096]}")
         if self.qk_fuse_norm is not None:
             qkv = self.qk_fuse_norm(qkv)
-            print(f"========CasualAttention forward in qk_fuse_norm: {qkv.shape=}, {qkv.dtype=}")
+            logger.debug(f"CasualAttention forward in qk_fuse_norm: {qkv.shape=}, {qkv.dtype=}")
         attn_output = fmha_impl.forward(qkv, kv_cache)
-        print(f"========CasualAttention forward after fmha_impl: {attn_output.shape=}, {attn_output.dtype=}")
+        logger.debug(f"CasualAttention forward after fmha_impl: {attn_output.shape=}, {attn_output.dtype=}")
         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
-        print(f"========CasualAttention forward after reshape: {attn_output.shape=}, {attn_output.dtype=}")
+        logger.debug(f"CasualAttention forward after reshape: {attn_output.shape=}, {attn_output.dtype=}")
 
         output = self.o_proj(attn_output)
         if self.config.tp_size > 1:
             output = all_reduce(output, group=Group.TP)
-        print(f"========CasualAttention forward output: {output.shape=}, 最后20个值:{output.flatten()[-20:].detach().cpu().to(torch.float32).tolist()}")
+        # logger.debug(f"CasualAttention forward output: {output.shape=}, 最后20个值:{output.flatten()[-20:].detach().cpu().to(torch.float32).tolist()}")
         return output
