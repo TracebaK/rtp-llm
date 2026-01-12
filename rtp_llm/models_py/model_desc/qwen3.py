@@ -3,11 +3,12 @@ import logging
 
 import torch
 from torch import nn
+from lightop import op
 
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from rtp_llm.model_loader.model_weight_info import ModelWeights
 from rtp_llm.models_py.model_desc.module_base import GptModelBase
-from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm
+from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm, LightopRMSNorm, LightopRMSNormAdd
 from rtp_llm.models_py.modules.attention import CausalAttention
 from rtp_llm.models_py.modules.embedding import Embedding
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
@@ -58,12 +59,13 @@ class Qwen3DecoderLayer(nn.Module):
         super().__init__()
         self.self_attn = CausalAttention(config, weights)
         self.mlp = FusedSiluActDenseMLP(config, weights)
-        self.input_layernorm = RMSNorm(
+        self.input_layernorm = LightopRMSNorm(
             weights[W.pre_ln_gamma], eps=config.layernorm_eps
         )
-        self.post_attention_layernorm = RMSNorm(
-            weights[W.post_ln_gamma], eps=config.layernorm_eps
-        )
+        #self.post_attention_layernorm = LightopRMSNorm(
+        #    weights[W.post_ln_gamma], eps=config.layernorm_eps
+        #)
+        self.fused_rn_add = LightopRMSNormAdd(weights[W.post_ln_gamma], eps=config.layernorm_eps)
         self.config = config
 
     def forward(
@@ -82,11 +84,12 @@ class Qwen3DecoderLayer(nn.Module):
             hidden_states=hidden_states, fmha_impl=fmha_impl, kv_cache=kv_cache
         )
         logger.debug(f"Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
-        hidden_states = residual + hidden_states
+        hidden_states = self.fused_rn_add(hidden_states, residual)
+        # hidden_states = residual + hidden_states
 
         # Fully Connected
-        residual = hidden_states
-        hidden_states = self.post_attention_layernorm(hidden_states)
+        # residual = hidden_states
+        # hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
         if self.config.tp_size > 1:
             hidden_states = all_reduce(hidden_states, group=Group.TP) # 第二次同步
@@ -106,7 +109,7 @@ class Qwen3Model(GptModelBase):
                 for idx in range(self.layer_num)
             ]
         )
-        self.norm = RMSNorm(
+        self.norm = LightopRMSNorm(
             weights.get_global_weight(W.final_ln_gamma), eps=config.layernorm_eps
         )
 
