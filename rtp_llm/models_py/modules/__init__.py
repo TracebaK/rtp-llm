@@ -13,7 +13,7 @@ device_type = get_device().get_device_type()
 if device_type == DeviceType.ROCm:
     print(f"################### CALL device_type={device_type}")
     from rtp_llm.models_py.modules.linear import Linear
-    from rtp_llm.models_py.modules.rocm.mlp import DenseMLP, FusedSiluActDenseMLP
+    from rtp_llm.models_py.modules.rocm.mlp import DenseMLP, FusedSiluActDenseMLP, VllmFusedSiluActDenseMLP
     from rtp_llm.models_py.modules.rocm.norm import FusedQKRMSNorm, RMSNorm, VllmRMSNorm, QKRMSNorm
     from rtp_llm.models_py.modules.rocm.fmha_torch import (
         DECODE_MHA_IMPS,

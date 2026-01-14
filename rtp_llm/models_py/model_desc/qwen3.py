@@ -9,7 +9,7 @@ from vllm import _custom_ops as ops
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from rtp_llm.model_loader.model_weight_info import ModelWeights
 from rtp_llm.models_py.model_desc.module_base import GptModelBase
-from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm, VllmRMSNorm
+from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm, VllmRMSNorm, VllmFusedSiluActDenseMLP
 from rtp_llm.models_py.modules.attention import CausalAttention
 from rtp_llm.models_py.modules.embedding import Embedding
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
@@ -59,7 +59,7 @@ class Qwen3DecoderLayer(nn.Module):
     ):
         super().__init__()
         self.self_attn = CausalAttention(config, weights)
-        self.mlp = FusedSiluActDenseMLP(config, weights)
+        self.mlp = VllmFusedSiluActDenseMLP(config, weights)
         self.input_layernorm = VllmRMSNorm(
             weights[W.pre_ln_gamma], eps=config.layernorm_eps
         )
@@ -111,7 +111,7 @@ class Qwen3Model(GptModelBase):
                 for idx in range(self.layer_num)
             ]
         )
-        self.norm = LightopRMSNorm(
+        self.norm = VllmRMSNorm(
             weights.get_global_weight(W.final_ln_gamma), eps=config.layernorm_eps
         )
 

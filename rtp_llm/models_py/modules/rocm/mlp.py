@@ -82,3 +82,23 @@ class FusedSiluActDenseMLP(nn.Module):
         gate, up = gate_up.chunk(2, dim=-1)
         output = F.silu(gate) * up
         return self.down_proj(output)
+
+
+class VllmFusedSiluActDenseMLP(nn.Module):
+    def __init__(
+        self, config: GptInitModelParameters, weights: Dict[str, torch.Tensor]
+    ):
+        super().__init__()
+        assert (
+            config.activation_type == "SiGLU"
+        ), "FusedSiluActDenseMLP only supports SiGLU activation"
+        from vllm import _custom_ops as ops
+        self.gate_up_proj = Linear(weights[W.ffn_w13], weights.get(W.ffn_b13, None))
+        self.down_proj = Linear(weights[W.ffn_w2], weights.get(W.ffn_b2, None))
+        self.act_fn = ops.silu_and_mul_opt
+
+    def forward(self, x: torch.Tensor):
+        gate_up = self.gate_up_proj(x)
+        x = self.act_fn(gate_up)
+        x = self.down_proj(x)
+        return x
