@@ -1,14 +1,15 @@
 from typing import Dict, Optional
 import logging
+from functools import partial
 
 import torch
 from torch import nn
-from lightop import op
+from vllm import _custom_ops as ops
 
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from rtp_llm.model_loader.model_weight_info import ModelWeights
 from rtp_llm.models_py.model_desc.module_base import GptModelBase
-from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm, LightopRMSNorm, LightopRMSNormAdd
+from rtp_llm.models_py.modules import FusedSiluActDenseMLP, RMSNorm, VllmRMSNorm
 from rtp_llm.models_py.modules.attention import CausalAttention
 from rtp_llm.models_py.modules.embedding import Embedding
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
@@ -59,13 +60,14 @@ class Qwen3DecoderLayer(nn.Module):
         super().__init__()
         self.self_attn = CausalAttention(config, weights)
         self.mlp = FusedSiluActDenseMLP(config, weights)
-        self.input_layernorm = LightopRMSNorm(
+        self.input_layernorm = VllmRMSNorm(
             weights[W.pre_ln_gamma], eps=config.layernorm_eps
         )
-        #self.post_attention_layernorm = LightopRMSNorm(
+        self.post_attention_layernorm = partial(ops.fused_add_rms_norm, weight=weights[W.post_ln_gamma], variance_epsilon=config.layernorm_eps)
+        # self.post_attention_layernorm = LightopRMSNorm(
         #    weights[W.post_ln_gamma], eps=config.layernorm_eps
-        #)
-        self.fused_rn_add = LightopRMSNormAdd(weights[W.post_ln_gamma], eps=config.layernorm_eps)
+        # )
+        # self.fused_rn_add = LightopRMSNormAdd(weights[W.post_ln_gamma], eps=config.layernorm_eps)
         self.config = config
 
     def forward(
@@ -84,10 +86,10 @@ class Qwen3DecoderLayer(nn.Module):
             hidden_states=hidden_states, fmha_impl=fmha_impl, kv_cache=kv_cache
         )
         logger.debug(f"Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
-        hidden_states = self.fused_rn_add(hidden_states, residual)
+        hidden_states = self.post_attention_layernorm(hidden_states, residual)
         # hidden_states = residual + hidden_states
 
-        # Fully Connected
+        # # Fully Connected
         # residual = hidden_states
         # hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)

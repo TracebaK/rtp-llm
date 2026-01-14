@@ -7,9 +7,11 @@ import torch.nn.functional as F
 #from aiter import rmsnorm2d_fwd as rms_norm
 from libth_transformer import rtp_llm_ops
 from torch import nn
+from lightop import op
+from vllm import _custom_ops as ops
+
 
 from rtp_llm.models_py.modules.norm import BaseNorm
-from lightop import op
 
 
 logger = logging.getLogger(__name__)
@@ -62,7 +64,19 @@ class LightopRMSNorm(BaseNorm):
         logger.info(f"LightopRMSNorm {hidden_states.is_contiguous()=}, {hidden_states.shape}, {hidden_states.dtype}")
         return op.rmsnorm_forward_autograd(hidden_states, self.weight, self.variance_epsilon, False)
 
+class VllmRMSNorm(BaseNorm):
+    def __init__(self, weight: torch.Tensor, eps: float = 1e-6):
+        super().__init__(weight, eps)
 
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        logger.info(f"VllmRMSNorm {hidden_states.is_contiguous()=}, {hidden_states.shape}, {hidden_states.dtype}")
+        out = torch.empty_like(hidden_states)
+        if True:
+            ops.rms_norm_opt(out, hidden_states, self.weight, self.variance_epsilon)
+        else:
+            ops.rms_norm(out, x, self.weight, self.variance_epsilon)
+        return out
+    
 class LightopRMSNormAdd(BaseNorm):
     def __init__(self, weight: torch.Tensor, eps: float = 1e-6):
         super().__init__(weight, eps)
@@ -184,8 +198,8 @@ class QKRMSNorm(nn.Module):
         eps: float = 1e-6,
     ):
         super().__init__()
-        self.q_norm = RMSNorm(q_weight, eps)
-        self.k_norm = RMSNorm(k_weight, eps)
+        self.q_norm = VllmRMSNorm(q_weight, eps)
+        self.k_norm = VllmRMSNorm(k_weight, eps)
         self.head_num = head_num
         self.kv_head_num = kv_head_num
         self.size_per_head = size_per_head

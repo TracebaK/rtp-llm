@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from rtp_llm.distribute.collective import Group, all_reduce
-from rtp_llm.models_py.modules import FusedQKRMSNorm
+from rtp_llm.models_py.modules import FusedQKRMSNorm, QKRMSNorm
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.models_py.modules.linear_factory import LinearFactory
 from rtp_llm.ops import KVCache
@@ -36,7 +36,7 @@ class CausalAttention(nn.Module):
         )
         self.qk_fuse_norm = None
         if W.q_ln_gamma in weights and W.k_ln_gamma in weights:
-            self.qk_fuse_norm = FusedQKRMSNorm(
+            self.qk_fuse_norm = QKRMSNorm(
                 weights[W.q_ln_gamma],
                 weights[W.k_ln_gamma],
                 config.head_num // config.tp_size,
