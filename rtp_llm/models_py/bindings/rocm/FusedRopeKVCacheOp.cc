@@ -37,7 +37,7 @@ CKAttnPtr FusedRopeKVCachePrefillOp::prepare(torch_ext::PyAttentionInputs attn_i
 
 std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> FusedRopeKVCachePrefillOp::forward(
     const torch::Tensor& qkv, FMHAType fmha_type, std::optional<torch_ext::KVCache> kv_cache, const CKAttnPtr& params) {
-    printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
+    // printf("LOG(INFO) %s: %d %s\n", __FILE__, __LINE__, __func__);
     // bool store_cache = params.common.kv_cache.has_value();
     const int local_head_num    = attn_configs_.head_num;
     const int local_head_num_kv = attn_configs_.kv_head_num;

@@ -63,7 +63,7 @@ class Qwen3DecoderLayer(nn.Module):
         self.input_layernorm = VllmRMSNorm(
             weights[W.pre_ln_gamma], eps=config.layernorm_eps
         )
-        self.post_attention_layernorm = partial(ops.fused_add_rms_norm, weight=weights[W.post_ln_gamma], variance_epsilon=config.layernorm_eps)
+        self.post_attention_layernorm = partial(ops.fused_add_rms_norm, weight=weights[W.post_ln_gamma], epsilon=config.layernorm_eps)
         # self.post_attention_layernorm = LightopRMSNorm(
         #    weights[W.post_ln_gamma], eps=config.layernorm_eps
         # )
@@ -86,7 +86,7 @@ class Qwen3DecoderLayer(nn.Module):
             hidden_states=hidden_states, fmha_impl=fmha_impl, kv_cache=kv_cache
         )
         logger.debug(f"Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
-        hidden_states = self.post_attention_layernorm(hidden_states, residual)
+        self.post_attention_layernorm(hidden_states, residual)
         # hidden_states = residual + hidden_states
 
         # # Fully Connected

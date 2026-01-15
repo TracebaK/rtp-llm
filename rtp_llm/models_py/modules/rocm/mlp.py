@@ -98,7 +98,10 @@ class VllmFusedSiluActDenseMLP(nn.Module):
         self.act_fn = ops.silu_and_mul_opt
 
     def forward(self, x: torch.Tensor):
-        gate_up = self.gate_up_proj(x)
-        x = self.act_fn(gate_up)
-        x = self.down_proj(x)
+        x = self.gate_up_proj(x)
+        d = x.shape[-1] // 2
+        output_shape = (x.shape[:-1] + (d, ))
+        out = torch.empty(output_shape, dtype=x.dtype, device=x.device)
+        self.act_fn(out, x)
+        x = self.down_proj(out)
         return x
