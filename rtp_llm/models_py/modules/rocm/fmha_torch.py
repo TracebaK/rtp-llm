@@ -8,7 +8,7 @@ from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKV
 
 from vllm import _custom_ops as ops
 #from transformers.utils import is_flash_attn_2_available
-#from flash_attn import flash_attn_func
+from flash_attn import flash_attn_func
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,8 @@ class TorchNativePrefillAttnOp():
         # 支持所有输入
         return True
 
+    
+
     def prepare(self, attn_inputs: PyAttentionInputs):
         # 提取批次大小和最大序列长度
         batch_size = attn_inputs.input_lengths.size(0)
@@ -100,8 +102,39 @@ class TorchNativePrefillAttnOp():
             input_lengths=attn_inputs.input_lengths
         )
         return self.fmha_params
-
+    
     def forward(self, qkv, kv_cache, fmha_params):
+        logger.info("use dcu flash attentio in prefill")
+        # q_tensor: {batch_size, head_num, seq_len, head_dim}
+        # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
+        # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
+        q_tensor, k_tensor, v_tensor = qkv[0],qkv[1],qkv[2]
+        
+        batch_size_actual, head_num_actual, seq_len, head_dim = q_tensor.shape
+        
+        # dimensions for aiter.flash_attn_func  {batch_size, seq_len, head_num, head_dim}
+        q = q_tensor.transpose(1, 2)  # {batch_size, seq_len, head_num, head_dim}
+        k = k_tensor.transpose(1, 2)  # {batch_size, seq_len_with_prefix, head_num_kv, head_dim}
+        v = v_tensor.transpose(1, 2)  # {batch_size, seq_len_with_prefix, head_dim}
+
+        #res = aiter.flash_attn_func(q, k, v, dropout_p=0., softmax_scale=None, causal=True)
+        res = flash_attn_func(q, k, v, dropout_p=0., softmax_scale=None, causal=True)
+        
+        input_lengths = fmha_params.input_lengths  # 每个 batch 的真实长度
+        hidden_size = head_num_actual * head_dim
+        
+        valid_results = []
+        for batch_idx in range(batch_size_actual):
+            actual_len = input_lengths[batch_idx].item()
+            batch_result = res[batch_idx, :actual_len, :, :]  # {actual_len, head_num, head_dim}
+            batch_result = batch_result.reshape(actual_len, hidden_size)  # {actual_len, hidden_size}
+            valid_results.append(batch_result)
+        
+        final_result = torch.cat(valid_results, dim=0)  # {total_token_num, hidden_size}
+        
+        return final_result
+ 
+    def forward_torch(self, qkv, kv_cache, fmha_params):
         """
         使用纯PyTorch实现的prefill阶段注意力计算
         """
@@ -210,8 +243,84 @@ class TorchNativeDecodeAttnOp():
             kv_cache_block_id_device = kv_cache_block_id_device
         )
         return self.fmha_params
+    
+    def forward(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
+        logger.info("use dcu paged attn in decode")
+        seq_lens = fmha_params.seq_lens
+        max_seq_len = fmha_params.max_seq_len + 1
+        key_cache = kv_cache.k_cache_base
+        value_cache = kv_cache.v_cache_base
+        block_tables_id_host = fmha_params.kv_cache_block_id_host
+        block_tables_id_device = fmha_params.kv_cache_block_id_device
+        num_kv_heads = self.head_num_kv
+        scale = 1.0 / (self.head_dim ** 0.5)
+        alibi_slopes = None
 
-    def forward(self, query: torch.Tensor, kv_cache: Optional[KVCache], fmha_params: Optional[Any]) -> torch.Tensor:
+        k_scale = kv_cache.k_scale_base if kv_cache and kv_cache.k_scale_base is not None else 1.0
+        v_scale = kv_cache.v_scale_base if kv_cache and kv_cache.v_scale_base is not None else 1.0
+        # 将k_scale和v_scale转换为tensor类型，如果它们不是tensor的话
+        if not isinstance(k_scale, torch.Tensor):
+            k_scale = torch.tensor(k_scale, dtype=query.dtype, device=query.device)
+        if not isinstance(v_scale, torch.Tensor):
+            v_scale = torch.tensor(v_scale, dtype=query.dtype, device=query.device)
+
+        max_num_blocks = block_tables_id_device.shape[1]
+
+        num_seqs, num_heads, head_size = query.shape
+        block_size = value_cache.shape[2]
+        _PARTITION_SIZE_ROCM = 256
+        
+        # init output
+        output = torch.empty_like(query)
+
+        max_num_partitions = (max_seq_len + _PARTITION_SIZE_ROCM - 1) // _PARTITION_SIZE_ROCM
+        assert _PARTITION_SIZE_ROCM % block_size == 0
+        # init tmp_output
+        tmp_output = torch.empty(
+            size=(num_seqs, num_heads, max_num_partitions, head_size),
+            dtype=output.dtype,
+            device=output.device,
+        )
+        
+        # init exp_sums 
+        exp_sums = torch.empty(
+            size=(num_seqs, num_heads, max_num_partitions),
+            dtype=torch.float32,
+            device=output.device,
+        )
+        fp8_out_scale=None
+        cpa_fp8_out = False
+        # init max_logits 
+        max_logits = torch.ones_like(exp_sums)
+        
+        kv_cache_dtype ="auto"
+        key_cache_reshaped = key_cache.permute(0,1,3,2)
+        value_cache_reshaped = value_cache.permute(0,1,3,2)
+
+        ops.paged_attention_v2_opt(
+            output,
+            exp_sums,
+            max_logits,
+            tmp_output,
+            query,
+            key_cache_reshaped,
+            value_cache_reshaped,
+            num_kv_heads,
+            float(scale),
+            block_tables_id_device,
+            seq_lens,
+            block_size,
+            max_seq_len,
+            alibi_slopes,
+            kv_cache_dtype,  # kv_cache_dtype
+            k_scale,
+            v_scale,
+        )
+
+        output_reshaped = output.view(output.shape[0], -1)
+        return output_reshaped
+
+    def forward_torch(self, query: torch.Tensor, kv_cache: Optional[KVCache], fmha_params: Optional[Any]) -> torch.Tensor:
         """
         使用纯PyTorch实现的decode阶段注意力计算
         """

@@ -1,6 +1,7 @@
 from typing import Dict, Optional
 import logging
 from functools import partial
+import time
 
 import torch
 from torch import nn
@@ -76,23 +77,31 @@ class Qwen3DecoderLayer(nn.Module):
         fmha_impl: FMHAImplBase,
         kv_cache: Optional[KVCache] = None,
     ) -> torch.Tensor:
+        #start = time.perf_counter() * 1000
         residual = hidden_states
         logger.debug(f"Qwen3DecoderLayer forward: {residual.shape=}, {residual.dtype=}")
         hidden_states = self.input_layernorm(hidden_states)
-        
+        #iln_ts = time.perf_counter() * 1000
+        #logger.info(f"input layernorm done: {iln_ts - start}")
         logger.debug(f"Qwen3DecoderLayer forward: {hidden_states.shape=}, {hidden_states.dtype=}")
         # Self Attention
         hidden_states = self.self_attn(
             hidden_states=hidden_states, fmha_impl=fmha_impl, kv_cache=kv_cache
         )
+        #atn_ts = time.perf_counter() * 1000
+        #logger.info(f"self attention done: {atn_ts - iln_ts}")
         logger.debug(f"Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
         self.post_attention_layernorm(hidden_states, residual)
+        #pln_ts = time.perf_counter() * 1000
+        #logger.info(f"post layernorm done: {pln_ts - atn_ts}")
         # hidden_states = residual + hidden_states
 
         # # Fully Connected
         # residual = hidden_states
         # hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
+        #mlp_ts = time.perf_counter() * 1000
+        #logger.info(f"mlp done: {mlp_ts - pln_ts}")
         if self.config.tp_size > 1:
             hidden_states = all_reduce(hidden_states, group=Group.TP) # 第二次同步
         hidden_states = residual + hidden_states
