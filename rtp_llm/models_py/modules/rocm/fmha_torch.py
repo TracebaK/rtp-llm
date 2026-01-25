@@ -1,5 +1,6 @@
 import torch
 import logging
+import time
 from typing import Optional, Any, List
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.ops import PyAttentionInputs, FMHAType, KVCache
@@ -8,7 +9,7 @@ from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKV
 
 from vllm import _custom_ops as ops
 #from transformers.utils import is_flash_attn_2_available
-from flash_attn import flash_attn_func
+from flash_attn import flash_attn_func, vllm_flash_attn_with_kvcache
 
 logger = logging.getLogger(__name__)
 
@@ -88,8 +89,6 @@ class TorchNativePrefillAttnOp():
         # 支持所有输入
         return True
 
-    
-
     def prepare(self, attn_inputs: PyAttentionInputs):
         # 提取批次大小和最大序列长度
         batch_size = attn_inputs.input_lengths.size(0)
@@ -104,7 +103,7 @@ class TorchNativePrefillAttnOp():
         return self.fmha_params
     
     def forward(self, qkv, kv_cache, fmha_params):
-        logger.info("use dcu flash attentio in prefill")
+        # logger.info("use dcu flash attentio in prefill")
         # q_tensor: {batch_size, head_num, seq_len, head_dim}
         # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
         # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
@@ -244,8 +243,40 @@ class TorchNativeDecodeAttnOp():
         )
         return self.fmha_params
     
+    def forward_fa(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
+        """
+        使用flash_attn_with_kvcache实现的decode阶段注意力计算
+        """
+        # 获取参数
+        seq_lens = fmha_params.seq_lens
+        key_cache = kv_cache.k_cache_base
+        value_cache = kv_cache.v_cache_base
+        block_tables = fmha_params.kv_cache_block_id_device
+        
+        batch_size, num_q_heads, head_dim = query.shape
+        query_expanded = query.unsqueeze(1)  # 添加seqlen维度: (batch_size, 1, num_q_heads, head_dim)
+        
+        # 使用flash_attn_with_kvcache进行计算
+        output = vllm_flash_attn_with_kvcache(
+            q=query_expanded,           # (batch_size, seqlen=1, nheads, headdim)
+            k_cache=key_cache,          # (num_blocks, page_block_size, nheads_k, headdim)
+            v_cache=value_cache,        # (num_blocks, page_block_size, nheads_k, headdim)
+            cache_seqlens=seq_lens,     # (batch_size,), dtype torch.int32
+            block_table=block_tables,   # (batch_size, max_num_blocks_per_seq), dtype torch.int32
+            causal=False,
+        )
+        
+        # 输出形状: (batch_size, seqlen=1, nheads, headdim)，需要重塑回所需格式
+        output = output.squeeze(1)  # 移除seqlen维度: (batch_size, n_heads, head_dim)
+        batch_size, num_heads, head_dim = output.shape
+        output = output.reshape(batch_size, num_heads * head_dim)  # (batch_size, hidden_size)
+        
+        return output
+ 
     def forward(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
-        logger.info("use dcu paged attn in decode")
+        #torch.cuda.synchronize()
+        #fwd_start = time.perf_counter() * 1000
+        # logger.info("use dcu paged attn in decode")
         seq_lens = fmha_params.seq_lens
         max_seq_len = fmha_params.max_seq_len + 1
         key_cache = kv_cache.k_cache_base
@@ -297,7 +328,7 @@ class TorchNativeDecodeAttnOp():
         key_cache_reshaped = key_cache.permute(0,1,3,2)
         value_cache_reshaped = value_cache.permute(0,1,3,2)
 
-        ops.paged_attention_v2_opt(
+        ops.paged_attention_v2(
             output,
             exp_sums,
             max_logits,
@@ -318,6 +349,9 @@ class TorchNativeDecodeAttnOp():
         )
 
         output_reshaped = output.view(output.shape[0], -1)
+        #torch.cuda.synchronize()
+        #fwd_end = time.perf_counter() * 1000
+        #logger.info(f"fmha decode take: {fwd_end - fwd_start}")
         return output_reshaped
 
     def forward_torch(self, query: torch.Tensor, kv_cache: Optional[KVCache], fmha_params: Optional[Any]) -> torch.Tensor:

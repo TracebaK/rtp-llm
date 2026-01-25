@@ -18,8 +18,10 @@ class Linear(nn.Module):
         self, weight: torch.Tensor, bias: Optional[torch.Tensor] = None
     ) -> None:
         super().__init__()
-        self.weight = weight.T
+        self.weight = weight
         self.bias = bias
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight, self.bias)
+        #print(f"===== {input.shape=}, {input.is_contiguous()=}, {self.weight.is_contiguous()=}, {self.bias is None}")
+        #return F.linear(input, self.weight, self.bias)
+        return torch.matmul(input, self.weight)

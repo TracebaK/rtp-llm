@@ -1,12 +1,13 @@
 from typing import Dict
 import torch
-from libth_transformer import rtp_llm_ops
+#from libth_transformer import rtp_llm_ops
 from torch import nn
 #import aiter
 import torch.nn.functional as F
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
 from rtp_llm.models_py.modules import Linear
 from rtp_llm.utils.model_weight import W
+from vllm import _custom_ops as ops
 
 class DenseMLP(nn.Module):
     def __init__(
@@ -92,7 +93,6 @@ class VllmFusedSiluActDenseMLP(nn.Module):
         assert (
             config.activation_type == "SiGLU"
         ), "FusedSiluActDenseMLP only supports SiGLU activation"
-        from vllm import _custom_ops as ops
         self.gate_up_proj = Linear(weights[W.ffn_w13], weights.get(W.ffn_b13, None))
         self.down_proj = Linear(weights[W.ffn_w2], weights.get(W.ffn_b2, None))
         self.act_fn = ops.silu_and_mul_opt
