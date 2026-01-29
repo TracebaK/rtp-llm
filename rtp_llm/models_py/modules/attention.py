@@ -52,40 +52,21 @@ class CausalAttention(nn.Module):
         fmha_impl: FMHAImplBase,
         kv_cache: Optional[KVCache],
     ) -> torch.Tensor:
-        #torch.cuda.synchronize()
-        #start = time.perf_counter() * 1000
         input_shape = hidden_states.shape[:-1]
         #logger.debug(f"CasualAttention forward: {input_shape=}")
         qkv = self.qkv_proj(hidden_states)
         #logger.debug(f"CasualAttention forward after qkv_proj: {qkv.shape=}, {qkv.dtype=}")
-        #torch.cuda.synchronize()
-        #qkv_st = time.perf_counter() * 1000
         #logger.debug(f"========q={qkv[-1, 2028:2048]}, k={qkv[-1, 3052:3072]}, v={qkv[-1, 4076:4096]}")
         if self.qk_fuse_norm is not None:
             qkv = self.qk_fuse_norm(qkv)
             #logger.debug(f"CasualAttention forward in qk_fuse_norm: {qkv.shape=}, {qkv.dtype=}")
-        #torch.cuda.synchronize()
-        #qknorm_st = time.perf_counter() * 1000
         attn_output = fmha_impl.forward(qkv, kv_cache)
-        #torch.cuda.synchronize()
-        #mha_st = time.perf_counter() * 1000
-        #logger.info(f"qk_proj: {qkv_st - start}, qk_norm: {qknorm_st - qkv_st}, fmha: {mha_st - qknorm_st}")
-        
-        #torch.cuda.synchronize()
-        #before_reshape = time.perf_counter() * 1000
         #logger.debug(f"CasualAttention forward after fmha_impl: {attn_output.shape=}, {attn_output.dtype=}")
+        #logger.info(f"fmha output shape: {attn_output.shape}")
         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
+        #logger.info(f"reshaped output shape: {attn_output.shape}")
         #logger.debug(f"CasualAttention forward after reshape: {attn_output.shape=}, {attn_output.dtype=}")
-        #torch.cuda.synchronize()
-        #after_reshape = time.perf_counter() * 1000
-        #logger.info(f"reshape take: {after_reshape - before_reshape}")
-        
-        #torch.cuda.synchronize()
-        #before_oproj = time.perf_counter() * 1000
         output = self.o_proj(attn_output)
-        #torch.cuda.synchronize()
-        #after_oproj = time.perf_counter() * 1000
-        #logger.info(f"oproj take: {after_oproj - before_oproj}")
 
         if self.config.tp_size > 1:
             output = all_reduce(output, group=Group.TP)
