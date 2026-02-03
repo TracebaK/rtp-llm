@@ -130,7 +130,7 @@ class Qwen3Model(GptModelBase):
         # logger.debug(f"==={input_ids.detach().cpu().tolist()=}")
         inputs_embeds = self.embed_tokens(input_ids)
         # logger.debug(f"===embeds: {inputs_embeds.flatten()[-20:].detach().cpu().to(torch.float32).tolist()}")
-        logger.info(f"Qwen3 forward {inputs_embeds.shape=}, {inputs_embeds.dtype=}")
+        #logger.info(f"Qwen3 forward {inputs_embeds.shape=}, {inputs_embeds.dtype=}")
         hidden_states = inputs_embeds
         attention_inputs: PyAttentionInputs = inputs.attention_inputs
         fmha_impl = self.get_fmha_impl(attention_inputs)

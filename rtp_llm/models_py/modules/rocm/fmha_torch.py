@@ -252,8 +252,34 @@ class TorchNativeDecodeAttnOp():
         # 2. 获取 KV Cache 引用
         # 你的维度: [num_blocks, num_kv_heads, block_size, head_size]
         k_cache = kv_cache.k_cache_base
-        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        # logger.info(f"原始vcache: {kv_cache.v_cache_base[1,0,0,:]}")
+        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2).contiguous()
+
+        # ======================= aiter layout to vllm layout =======================
+        num_blocks, num_kv_heads, block_size, _ = k_cache.shape
+        x = 8
+        k_cache = k_cache.view(
+            num_blocks, 
+            num_kv_heads, 
+            head_size // x,    # 16
+            block_size // 16,  # 4
+            16,                # 每个 tile 的 token 数
+            x                  # 8
+        )
+
+        # 3. 重新排列维度
+        # 目标顺序: [block, head, (block_size//16, 16), (head_size//x, x)]
+        # 对应索引: [0, 1, (3, 4), (2, 5)]
+        k_cache = k_cache.permute(0, 1, 3, 4, 2, 5).contiguous()
+
+        # 4. 合并维度得到最终形状 [num_blocks, num_heads, 64, 128]
+        k_cache = k_cache.view(num_blocks, num_kv_heads, block_size, head_size)
         
+        v_cache = v_cache.view(num_blocks, num_kv_heads, 1, head_size, block_size)
+        v_cache = v_cache.permute(0, 1, 2, 4, 3).contiguous()
+        v_cache = v_cache.view(num_blocks, num_kv_heads, head_size, block_size)
+        # ===================== aiter layout to vllm layout =========================
+
         # 3. 构造 varlen 算子需要的 metadata
         # Decode 阶段，每个 sequence 的 q 长度为 1
         device = query.device
@@ -271,7 +297,7 @@ class TorchNativeDecodeAttnOp():
         # 5. 调用新接口
         # 注意：我们直接传入 k_cache，如果算子支持特定的 stride，则不需要显式 reshape
         # 如果接口强制要求特定 layout，这里使用 view/permute（在 PyTorch 中通常只是产生 view，不触发 copy）
-        logger.info(f"{query.shape=}, {k_cache.shape=}, {v_cache.shape=}, {max_seqlen_q=}, cu_seqlens_q={cu_seqlens_q.detach().cpu().tolist()}, seqused_k={seq_lens.detach().cpu().tolist()}, {max_seqlen_k=}, block_table={fmha_params.kv_cache_block_id_device.detach().cpu().tolist()}, kcache[1,0,0,:20]: {k_cache[1,0,0,:20].detach().cpu().tolist()}, vcache[1,0,:20,0]: {v_cache[1,0,:20,0].detach().cpu().tolist()}")
+        # logger.info(f"{query.shape=}, {k_cache.shape=}, {v_cache.shape=}, {max_seqlen_q=}, cu_seqlens_q={cu_seqlens_q.detach().cpu().tolist()}, seqused_k={seq_lens.detach().cpu().tolist()}, {max_seqlen_k=}, block_table={fmha_params.kv_cache_block_id_device.detach().cpu().tolist()}, kcache[1,0,0,:]: {k_cache[1,0,0,:].detach().cpu().tolist()}, vcache[1,0,:,0]: {v_cache[1,0,:,0].detach().cpu().tolist()}")
         output = vllm_flash_attn_varlen_func(
             q=query,
             k=k_cache, # 内部会根据 block_table 索引
@@ -287,7 +313,7 @@ class TorchNativeDecodeAttnOp():
             k_descale=None,
             v_descale=None,
         )
-        logger.info(f"{output.shape=}, 输出最后一维的前20个数：{output[...,-1][:20].detach().cpu().tolist()}")
+        # logger.info(f"{output.shape=}, 输出最后一维的前20个数：{output[...,-1][:20].detach().cpu().tolist()}")
 
         # 6. 还原输出形状
         return output.view(num_seqs, -1) 
