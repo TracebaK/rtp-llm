@@ -50,30 +50,18 @@ class FMHAImplBase(object):
                 )
 
     def forward(self, qkv: torch.Tensor, kv_cache: Optional[KVCache]) -> torch.Tensor:
-        #torch.cuda.synchronize()
-        #start = time.perf_counter() * 1000
         assert self.rope_kvcache_impl is not None and self.rope_params is not None
         fmha_input = self.rope_kvcache_impl.forward(
             qkv, self.fmha_type(), kv_cache, self.rope_params
         )
-        #torch.cuda.synchronize()
-        #rope_st = time.perf_counter() * 1000
-        #logging.info(f"rope take: {rope_st - start}")
         if (
             self.attn_inputs.is_prefill
             and self.attn_inputs.cache_store_inputs
             and self.write_cache_store_impl is not None
         ):
             self.write_cache_store_impl(kv_cache)
-            write_st = time.perf_counter()
-            logging.info(f"write cache take: {write_st - rope_st}")
         assert self.fmha_impl is not None
-        #torch.cuda.synchronize()
-        #kv_st = time.perf_counter() * 1000
         res = self.fmha_impl.forward(fmha_input, kv_cache, self.fmha_params)
-        #torch.cuda.synchronize()
-        #mha_st = time.perf_counter() * 1000
-        #logging.info(f"mha take: {mha_st - kv_st}")
         return res
 
     @staticmethod

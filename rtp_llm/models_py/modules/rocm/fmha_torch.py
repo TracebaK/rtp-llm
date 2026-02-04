@@ -5,13 +5,73 @@ from typing import Optional, Any, List
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.ops import PyAttentionInputs, FMHAType, KVCache
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
-from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKVCacheDecodeOp
+# from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKVCacheDecodeOp
 
 from vllm import _custom_ops as ops
+from vllm.model_executor.layers.rotary_embedding import get_rope
 #from transformers.utils import is_flash_attn_2_available
-from flash_attn import flash_attn_func, vllm_flash_attn_with_kvcache, vllm_flash_attn_varlen_func
+from flash_attn import flash_attn_func, vllm_flash_attn_varlen_func
 
 logger = logging.getLogger(__name__)
+
+class DtkRopeKVCachePrefillOp:
+    def __init__(self, gpt_init_parameter: GptInitModelParameters):
+        pass
+
+    def prepare(self, attn_inputs: PyAttentionInputs):
+        pass
+
+    def forward(self, qkv: torch.Tensor, fmha_type, kv_cache: Optional[KVCache], params) -> torch.Tensor:
+        pass
+
+
+class DtkRopeKVCacheDecodeOp:
+    def __init__(self, gpt_init_parameter: GptInitModelParameters):
+        self.gpt_init_parameter = gpt_init_parameter
+        self.rotary_emb = get_rope(
+            self.gpt_init_parameter.gpt_init_params.size_per_head, 
+            rotary_dim=self.gpt_init_parameter.gpt_init_params.head_dim, 
+            max_position=40960, 
+            base=1000000, 
+            rope_scaling=None, 
+        )
+
+    def prepare(self, attn_inputs: PyAttentionInputs):
+        # 获取批次大小
+        batch_size = attn_inputs.sequence_lengths.size(0)
+        
+        # 处理KV缓存块ID
+        kv_cache_block_id_host = None
+        kv_cache_block_id_device = None
+        if (attn_inputs.kv_cache_block_id_host is not None and 
+            attn_inputs.kv_cache_block_id_host.numel() > 0):
+            kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
+            kv_cache_block_id_device = attn_inputs.kv_cache_block_id_device
+
+        attn_inputs.cu_seqlens[1:batch_size + 1] = attn_inputs.input_lengths.cumsum(0)
+        cu_seqlens = attn_inputs.cu_seqlens
+        cu_kv_seqlens = cu_seqlens.clone()  # 创建副本
+
+        attn_params = {}
+        # 设置decode计划标志
+        attn_params["decode_plan"] = True
+        
+        # 设置各种序列长度张量
+        attn_params["cu_seqlens"] = cu_seqlens
+        attn_params["cu_kv_seqlens"] = cu_kv_seqlens
+        attn_params["sequence_lengths"] = attn_inputs.sequence_lengths
+        attn_params["input_lengths"] = attn_inputs.input_lengths
+        
+        # 如果有KV缓存块ID，设置到参数中
+        if (attn_inputs.kv_cache_block_id_device is not None and 
+            attn_inputs.kv_cache_block_id_device.numel() > 0):
+            attn_params["kv_cache_block_id_device"] = attn_inputs.kv_cache_block_id_device
+            
+        return attn_params
+
+    def forward(self, qkv: torch.Tensor, fmha_type, kv_cache: Optional[KVCache], params) -> torch.Tensor:
+        pass
+
 
 # Simple data structure for fmha_params
 class FMHAParams:
