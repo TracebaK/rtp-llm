@@ -88,7 +88,7 @@ class Qwen3DecoderLayer(nn.Module):
         hidden_states = self.self_attn(
             hidden_states=hidden_states, fmha_impl=fmha_impl, kv_cache=kv_cache
         )
-        atn_ts = time.perf_counter() * 1000
+        #atn_ts = time.perf_counter() * 1000
         #logger.info(f"self attention done: {atn_ts - iln_ts}")
         #logger.debug(f"Qwen3DecoderLayer forward after self attention: {hidden_states.shape=}, {hidden_states.dtype=}")
         self.post_attention_layernorm(hidden_states, residual)

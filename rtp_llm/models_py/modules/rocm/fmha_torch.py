@@ -16,13 +16,74 @@ logger = logging.getLogger(__name__)
 
 class DtkRopeKVCachePrefillOp:
     def __init__(self, gpt_init_parameter: GptInitModelParameters):
-        pass
-
+        self.gpt_init_parameter = gpt_init_parameter
+        self.rotary_emb = get_rope(
+            self.gpt_init_parameter.gpt_init_params.size_per_head, 
+            rotary_dim=self.gpt_init_parameter.gpt_init_params.head_dim, 
+            max_position=40960, 
+            base=1000000, 
+            rope_scaling=None, 
+        )
     def prepare(self, attn_inputs: PyAttentionInputs):
-        pass
+        logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n {attn_inputs.kv_block_offset=}")
+        batch_size = attn_inputs.input_lengths.shape[0]
+        
+        # 2. 处理KV cache块ID（如果存在）
+        kv_cache_block_id_host = None
+        kv_cache_block_id_device = None
+        
+        if attn_inputs.kv_cache_block_id_host.numel() > 0:
+            kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
+            kv_cache_block_id_device = attn_inputs.kv_cache_block_id_device
+        
+        # 3. 计算累积序列长度 (cu_seqlens)
+        # 创建CPU上的零张量 [0, 0, 0, ..., 0] 长度为 batch_size + 1
+        cu_seqlens = torch.zeros(batch_size + 1, dtype=torch.int32, device='cpu')
+        
+        # 计算input_lengths的累积和
+        # input_lengths.cumsum(0) 会得到 [len1, len1+len2, len1+len2+len3, ...]
+        cumulative_lengths = attn_inputs.input_lengths.cumsum(0)
+        
+        # 将累积长度赋值给cu_seqlens的后半部分
+        cu_seqlens[1:] = cumulative_lengths
+        
+        # 移动到GPU
+        cu_seqlens = cu_seqlens.to('cuda')
+        cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
+        
+        # 4. 准备注意力参数字典
+        attn_params = {
+            #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
+            'cu_seqlens': cu_seqlens,
+            'cu_kv_seqlens': cu_kv_seqlens,
+            'max_seq_len': attn_inputs.input_lengths.max().item(),
+            'kv_block_offset': attn_inputs.kv_block_offset,
+            'batch_size': batch_size,
+            'input_lengths': attn_inputs.input_lengths,
+            'kv_cache_block_id_host': kv_cache_block_id_host,
+            'kv_cache_block_id_device': kv_cache_block_id_device,
+            # 添加其他必要的配置
+            'head_num': 16,
+            'kv_head_num': 8,
+            'size_per_head': 128
+        }
+        
+        return attn_params
 
     def forward(self, qkv: torch.Tensor, fmha_type, kv_cache: Optional[KVCache], params) -> torch.Tensor:
-        pass
+        q, k, v = qkv.split([params.head_num*params.size_per_head, 
+                             params.kv_head_num*params.size_per_head, 
+                             params.kv_head_num*params.size_per_head], dim=-1)
+        q, k = self.rotary_emb(params.cu_seqlens, q, k)
+        ops.reshape_and_cache_cuda(k, 
+                                   v, 
+                                   kv_cache.k_cache_base,
+                                   kv_cache.v_cache_base,
+                                   slot_mapping,
+                                   self.kv_cache_dtype,
+                                   kv_cache.k_scale_base,
+                                   kv_cache.v_scale_base)
+        return q
 
 
 class DtkRopeKVCacheDecodeOp:
@@ -70,8 +131,17 @@ class DtkRopeKVCacheDecodeOp:
         return attn_params
 
     def forward(self, qkv: torch.Tensor, fmha_type, kv_cache: Optional[KVCache], params) -> torch.Tensor:
-        pass
-
+        q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
+        q, k = self.rotary_emb(self.positions, q, k)
+        reshape_and_cache_cuda(k, 
+                               v, 
+                               kv_cache.k_cache_base,
+                               kv_cache.v_cache_base,
+                               slot_mapping,
+                               self.kv_cache_dtype,
+                               kv_cache.k_scale_base,
+                               kv_cache.v_scale_base)
+        return q
 
 # Simple data structure for fmha_params
 class FMHAParams:
@@ -96,7 +166,8 @@ class TorchNativeFMHAPrefillImplBase(FMHAImplBase):
     ) -> None:
         super().__init__(
             fmha_impl,
-            FusedRopeKVCachePrefillOp(config.gpt_init_params),
+            DtkRopeKVCachePrefillOp(config.gpt_init_params),
+            #FusedRopeKVCachePrefillOp(config.gpt_init_params),
             attn_inputs,
         )
 
@@ -109,7 +180,8 @@ class TorchNativeFMHADecodeImplBase(FMHAImplBase):
     ) -> None:
         super().__init__(
             fmha_impl,
-            FusedRopeKVCacheDecodeOp(config.gpt_init_params),
+            DtkRopeKVCacheDecodeOp(config.gpt_init_params),
+            #FusedRopeKVCacheDecodeOp(config.gpt_init_params),
             attn_inputs,
         )
 
@@ -313,7 +385,7 @@ class TorchNativeDecodeAttnOp():
         # 你的维度: [num_blocks, num_kv_heads, block_size, head_size]
         k_cache = kv_cache.k_cache_base
         # logger.info(f"原始vcache: {kv_cache.v_cache_base[1,0,0,:]}")
-        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2).contiguous()
+        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
 
         # ======================= aiter layout to vllm layout =======================
         num_blocks, num_kv_heads, block_size, _ = k_cache.shape
