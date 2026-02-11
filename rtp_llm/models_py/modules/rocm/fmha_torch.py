@@ -5,7 +5,7 @@ from typing import Optional, Any, List
 from rtp_llm.models_py.modules.fmha import FMHAImplBase
 from rtp_llm.ops import PyAttentionInputs, FMHAType, KVCache
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters
-# from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKVCacheDecodeOp
+from libth_transformer.rtp_llm_ops import FusedRopeKVCachePrefillOp, FusedRopeKVCacheDecodeOp
 
 from vllm import _custom_ops as ops
 from vllm.model_executor.layers.rotary_embedding import get_rope
@@ -18,14 +18,13 @@ class DtkRopeKVCachePrefillOp:
     def __init__(self, gpt_init_parameter: GptInitModelParameters):
         self.gpt_init_parameter = gpt_init_parameter
         self.rotary_emb = get_rope(
-            self.gpt_init_parameter.gpt_init_params.size_per_head, 
-            rotary_dim=self.gpt_init_parameter.gpt_init_params.head_dim, 
+            self.gpt_init_parameter.size_per_head, 
+            rotary_dim=self.gpt_init_parameter.size_per_head, 
             max_position=40960, 
             base=1000000, 
             rope_scaling=None, 
         )
     def prepare(self, attn_inputs: PyAttentionInputs):
-        logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n {attn_inputs.kv_block_offset=}")
         batch_size = attn_inputs.input_lengths.shape[0]
         
         # 2. 处理KV cache块ID（如果存在）
@@ -47,10 +46,18 @@ class DtkRopeKVCachePrefillOp:
         # 将累积长度赋值给cu_seqlens的后半部分
         cu_seqlens[1:] = cumulative_lengths
         
+        lengths = cu_seqlens[1:] - cu_seqlens[:-1] # 计算每个序列的长度 [3, 4]
+        positions = torch.ones(cu_seqlens[-1].item(), dtype=torch.long)
+        first_indices = cu_seqlens[:-1]
+        reset_values = torch.cat([torch.tensor([0]), lengths[:-1]])
+        positions[first_indices] = 1 - reset_values 
+        positions = positions.cumsum(0) - 1
+        
         # 移动到GPU
         cu_seqlens = cu_seqlens.to('cuda')
         cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
+        logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
@@ -65,16 +72,17 @@ class DtkRopeKVCachePrefillOp:
             # 添加其他必要的配置
             'head_num': 16,
             'kv_head_num': 8,
-            'size_per_head': 128
+            'size_per_head': 128,
+            'positions': positions
         }
         
         return attn_params
 
-    def forward(self, qkv: torch.Tensor, fmha_type, kv_cache: Optional[KVCache], params) -> torch.Tensor:
-        q, k, v = qkv.split([params.head_num*params.size_per_head, 
-                             params.kv_head_num*params.size_per_head, 
-                             params.kv_head_num*params.size_per_head], dim=-1)
-        q, k = self.rotary_emb(params.cu_seqlens, q, k)
+    def forward(self, qkv: torch.Tensor, fmha_type: FMHAType, kv_cache: Optional[KVCache], params: Optional[Any]) -> torch.Tensor:
+        q, k, v = qkv.split([params["head_num"]*params["size_per_head"], 
+                             params["kv_head_num"]*params["size_per_head"], 
+                             params["kv_head_num"]*params["size_per_head"]], dim=-1)
+        q, k = self.rotary_emb(params["positions"], q, k)
         ops.reshape_and_cache_cuda(k, 
                                    v, 
                                    kv_cache.k_cache_base,
@@ -130,7 +138,7 @@ class DtkRopeKVCacheDecodeOp:
             
         return attn_params
 
-    def forward(self, qkv: torch.Tensor, fmha_type, kv_cache: Optional[KVCache], params) -> torch.Tensor:
+    def forward(self, qkv: torch.Tensor, fmha_type: FMHAType, kv_cache: Optional[KVCache], params: Optional[Any]) -> torch.Tensor:
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
         q, k = self.rotary_emb(self.positions, q, k)
         reshape_and_cache_cuda(k, 
