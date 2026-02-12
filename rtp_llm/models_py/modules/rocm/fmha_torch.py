@@ -26,7 +26,8 @@ class DtkRopeKVCachePrefillOp:
         )
     def prepare(self, attn_inputs: PyAttentionInputs):
         batch_size = attn_inputs.input_lengths.shape[0]
-        
+        block_size = self.gpt_init_parameter.seq_size_per_block
+
         # 2. 处理KV cache块ID（如果存在）
         kv_cache_block_id_host = None
         kv_cache_block_id_device = None
@@ -45,19 +46,32 @@ class DtkRopeKVCachePrefillOp:
         
         # 将累积长度赋值给cu_seqlens的后半部分
         cu_seqlens[1:] = cumulative_lengths
-        
-        lengths = cu_seqlens[1:] - cu_seqlens[:-1] # 计算每个序列的长度 [3, 4]
-        positions = torch.ones(cu_seqlens[-1].item(), dtype=torch.long)
+
+        # 构造positions
+        seq_lens = cu_seqlens[1:] - cu_seqlens[:-1] # 计算每个序列的长度 [3, 4]
+        positions = torch.ones(cu_seqlens[-1].item(), dtype=torch.long, device='cpu')
         first_indices = cu_seqlens[:-1]
-        reset_values = torch.cat([torch.tensor([0]), lengths[:-1]])
+        reset_values = torch.cat([torch.tensor([0]), seq_lens[:-1]])
         positions[first_indices] = 1 - reset_values 
         positions = positions.cumsum(0) - 1
         
+        # 构造slot_mapping
+        block_indices = positions // block_size
+        seq_ids = torch.repeat_interleave(
+            torch.arange(len(seq_lens)), 
+            seq_lens,
+        )
+        physical_block_ids = kv_cache_block_id_host[seq_ids, block_indices]
+        block_offsets = positions % block_size
+        slot_mapping = physical_block_ids * block_size + block_offsets
+
         # 移动到GPU
+        positions = positions.to('cuda')
+        slot_mapping = slot_mapping.to('cuda')
         cu_seqlens = cu_seqlens.to('cuda')
         cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
-        logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}")
+        #logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
@@ -69,29 +83,45 @@ class DtkRopeKVCachePrefillOp:
             'input_lengths': attn_inputs.input_lengths,
             'kv_cache_block_id_host': kv_cache_block_id_host,
             'kv_cache_block_id_device': kv_cache_block_id_device,
+            'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
             # 添加其他必要的配置
             'head_num': 16,
             'kv_head_num': 8,
             'size_per_head': 128,
-            'positions': positions
+            'positions': positions,
+            'slot_mapping': slot_mapping
         }
         
         return attn_params
-
+    
     def forward(self, qkv: torch.Tensor, fmha_type: FMHAType, kv_cache: Optional[KVCache], params: Optional[Any]) -> torch.Tensor:
         q, k, v = qkv.split([params["head_num"]*params["size_per_head"], 
                              params["kv_head_num"]*params["size_per_head"], 
                              params["kv_head_num"]*params["size_per_head"]], dim=-1)
         q, k = self.rotary_emb(params["positions"], q, k)
-        ops.reshape_and_cache_cuda(k, 
-                                   v, 
-                                   kv_cache.k_cache_base,
-                                   kv_cache.v_cache_base,
-                                   slot_mapping,
-                                   self.kv_cache_dtype,
-                                   kv_cache.k_scale_base,
-                                   kv_cache.v_scale_base)
-        return q
+        k_reshaped = k.reshape(-1, params["kv_head_num"], params["size_per_head"])
+        v_reshaped = v.reshape(-1, params["kv_head_num"], params["size_per_head"])
+        k_cache = kv_cache.k_cache_base
+        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        if kv_cache.k_scale_base is None:
+            k_scale = torch.tensor(1.0, device='cuda')
+        else:
+            k_scale = kv_cache.k_scale_base
+        if kv_cache.v_scale_base is None:
+            v_scale = torch.tensor(1.0, device='cuda')
+        else:
+            v_scale = kv_cache.v_scale_base
+        logging.info(f"before cache: {q.shape=}, {k.shape=}, {v.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}")
+        
+        ops.reshape_and_cache_cuda(k_reshaped, 
+                                   v_reshaped, 
+                                   k_cache,
+                                   v_cache,
+                                   params["slot_mapping"],
+                                   'auto',
+                                   k_scale,
+                                   v_scale)
+        return q, k, v
 
 
 class DtkRopeKVCacheDecodeOp:
@@ -106,6 +136,7 @@ class DtkRopeKVCacheDecodeOp:
         )
 
     def prepare(self, attn_inputs: PyAttentionInputs):
+        logging.info("Decode cache op prepare")
         # 获取批次大小
         batch_size = attn_inputs.sequence_lengths.size(0)
         
@@ -224,7 +255,8 @@ class TorchNativePrefillAttnOp():
         self.head_dim = config.hidden_size // config.head_num
         self.head_num_kv = config.head_num_kv
         self.kv_cache_data_type = config.kv_cache_data_type
-
+        self.softmax_scale = 1 / self.head_dim ** 0.5
+    
     def support(self, attn_inputs: PyAttentionInputs) -> bool:
         # 支持所有输入
         return True
@@ -243,6 +275,42 @@ class TorchNativePrefillAttnOp():
         return self.fmha_params
     
     def forward(self, qkv, kv_cache, fmha_params):
+        # logger.info("use dcu flash attentio in prefill")
+        # q_tensor: {batch_size, head_num, seq_len, head_dim}
+        # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
+        # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
+        q_tensor, k_tensor, v_tensor = qkv[0],qkv[1],qkv[2]
+        
+        key_cache = kv_cache.k_cache_base
+        value_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        print(f"{key_cache.shape=}, {value_cache.shape=}")
+        vllm_flash_attn_varlen_func(
+                    q=q_tensor,
+                    k=key_cache,
+                    v=value_cache,
+                    out=output[:num_actual_tokens],
+                    cu_seqlens_q=cu_seqlens_q,
+                    max_seqlen_q=max_seqlen_q,
+                    seqused_k=seqused_k,
+                    max_seqlen_k=max_seqlen_k,
+                    softmax_scale=self.softmax_scale,
+                    causal=True,
+                    alibi_slopes=None,
+                    window_size=(-1, -1),
+                    block_table=fmha_params.block_table,
+                    softcap=0,
+                    scheduler_metadata=None,
+                    # fa_version=self.vllm_flash_attn_version,
+                    # q_descale=layer._q_scale.expand(descale_shape),
+                    # k_descale=layer._k_scale.expand(descale_shape),
+                    # v_descale=layer._v_scale.expand(descale_shape),
+                    # num_splits=attn_metadata.max_num_splits,
+                    is_prefix_cache=True,
+        )
+
+        return output
+
+    def forward_fa(self, qkv, kv_cache, fmha_params):
         # logger.info("use dcu flash attentio in prefill")
         # q_tensor: {batch_size, head_num, seq_len, head_dim}
         # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
