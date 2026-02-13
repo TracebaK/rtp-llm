@@ -71,7 +71,7 @@ class DtkRopeKVCachePrefillOp:
         cu_seqlens = cu_seqlens.to('cuda')
         cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
-        #logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
+        logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
@@ -111,7 +111,7 @@ class DtkRopeKVCachePrefillOp:
             v_scale = torch.tensor(1.0, device='cuda')
         else:
             v_scale = kv_cache.v_scale_base
-        logging.info(f"before cache: {q.shape=}, {k.shape=}, {v.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}")
+        #logging.info(f"before cache: {q.shape=}, {k.shape=}, {v.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}")
         
         ops.reshape_and_cache_cuda(k_reshaped, 
                                    v_reshaped, 
@@ -128,58 +128,108 @@ class DtkRopeKVCacheDecodeOp:
     def __init__(self, gpt_init_parameter: GptInitModelParameters):
         self.gpt_init_parameter = gpt_init_parameter
         self.rotary_emb = get_rope(
-            self.gpt_init_parameter.gpt_init_params.size_per_head, 
-            rotary_dim=self.gpt_init_parameter.gpt_init_params.head_dim, 
+            self.gpt_init_parameter.size_per_head, 
+            rotary_dim=self.gpt_init_parameter.size_per_head, 
             max_position=40960, 
             base=1000000, 
             rope_scaling=None, 
         )
 
     def prepare(self, attn_inputs: PyAttentionInputs):
-        logging.info("Decode cache op prepare")
-        # 获取批次大小
-        batch_size = attn_inputs.sequence_lengths.size(0)
-        
-        # 处理KV缓存块ID
+        print(f"{attn_inputs.input_lengths=},{attn_inputs.cu_seqlens=},{attn_inputs.sequence_lengths=}")
+        batch_size = attn_inputs.input_lengths.shape[0]
+        block_size = self.gpt_init_parameter.seq_size_per_block
+
+        # 2. 处理KV cache块ID（如果存在）
         kv_cache_block_id_host = None
         kv_cache_block_id_device = None
-        if (attn_inputs.kv_cache_block_id_host is not None and 
-            attn_inputs.kv_cache_block_id_host.numel() > 0):
+        
+        if attn_inputs.kv_cache_block_id_host.numel() > 0:
             kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
             kv_cache_block_id_device = attn_inputs.kv_cache_block_id_device
-
-        attn_inputs.cu_seqlens[1:batch_size + 1] = attn_inputs.input_lengths.cumsum(0)
-        cu_seqlens = attn_inputs.cu_seqlens
-        cu_kv_seqlens = cu_seqlens.clone()  # 创建副本
-
-        attn_params = {}
-        # 设置decode计划标志
-        attn_params["decode_plan"] = True
         
-        # 设置各种序列长度张量
-        attn_params["cu_seqlens"] = cu_seqlens
-        attn_params["cu_kv_seqlens"] = cu_kv_seqlens
-        attn_params["sequence_lengths"] = attn_inputs.sequence_lengths
-        attn_params["input_lengths"] = attn_inputs.input_lengths
+        # 3. 计算累积序列长度 (cu_seqlens)
+        # 创建CPU上的零张量 [0, 0, 0, ..., 0] 长度为 batch_size + 1
+        cu_seqlens = torch.zeros(batch_size + 1, dtype=torch.int32, device='cpu')
         
-        # 如果有KV缓存块ID，设置到参数中
-        if (attn_inputs.kv_cache_block_id_device is not None and 
-            attn_inputs.kv_cache_block_id_device.numel() > 0):
-            attn_params["kv_cache_block_id_device"] = attn_inputs.kv_cache_block_id_device
-            
+        # 计算input_lengths的累积和
+        # input_lengths.cumsum(0) 会得到 [len1, len1+len2, len1+len2+len3, ...]
+        cumulative_lengths = attn_inputs.input_lengths.cumsum(0)
+        
+        # 将累积长度赋值给cu_seqlens的后半部分
+        cu_seqlens[1:] = cumulative_lengths
+
+        # 构造positions
+        positions = attn_inputs.sequence_lengths.cpu() + 1
+        
+        # 构造slot_mapping
+        seq_lens = attn_inputs.sequence_lengths
+        block_indices = positions // block_size
+        seq_ids = torch.repeat_interleave(
+            torch.arange(len(seq_lens)), 
+            1,
+        )
+        physical_block_ids = kv_cache_block_id_host[seq_ids, block_indices]
+        block_offsets = positions % block_size
+        slot_mapping = physical_block_ids * block_size + block_offsets
+
+        # 移动到GPU
+        positions = positions.long().to('cuda')
+        slot_mapping = slot_mapping.long().to('cuda')
+        cu_seqlens = cu_seqlens.to('cuda')
+        cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
+        
+        logging.info(f"DtkRopeKVCacheDecodeOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
+        # 4. 准备注意力参数字典
+        attn_params = {
+            #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
+            'cu_seqlens': cu_seqlens,
+            'cu_kv_seqlens': cu_kv_seqlens,
+            'max_seq_len': attn_inputs.input_lengths.max().item(),
+            'kv_block_offset': attn_inputs.kv_block_offset,
+            'batch_size': batch_size,
+            'input_lengths': attn_inputs.input_lengths,
+            'kv_cache_block_id_host': kv_cache_block_id_host,
+            'kv_cache_block_id_device': kv_cache_block_id_device,
+            'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
+            # 添加其他必要的配置
+            'head_num': self.gpt_init_parameter.head_num,
+            'kv_head_num': self.gpt_init_parameter.head_num_kv,
+            'size_per_head': self.gpt_init_parameter.size_per_head,
+            'positions': positions,
+            'slot_mapping': slot_mapping
+        }
+        
         return attn_params
 
     def forward(self, qkv: torch.Tensor, fmha_type: FMHAType, kv_cache: Optional[KVCache], params: Optional[Any]) -> torch.Tensor:
-        q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
-        q, k = self.rotary_emb(self.positions, q, k)
-        reshape_and_cache_cuda(k, 
-                               v, 
-                               kv_cache.k_cache_base,
-                               kv_cache.v_cache_base,
-                               slot_mapping,
-                               self.kv_cache_dtype,
-                               kv_cache.k_scale_base,
-                               kv_cache.v_scale_base)
+        q, k, v = qkv.split([params["head_num"]*params["size_per_head"], 
+                             params["kv_head_num"]*params["size_per_head"], 
+                             params["kv_head_num"]*params["size_per_head"]], dim=-1)
+        #print(f"{params['positions'].shape=}, {q.shape=}, {k.shape=}")
+        q, k = self.rotary_emb(params["positions"], q, k)
+        k_reshaped = k.reshape(-1, params["kv_head_num"], params["size_per_head"])
+        v_reshaped = v.reshape(-1, params["kv_head_num"], params["size_per_head"])
+        k_cache = kv_cache.k_cache_base
+        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        if kv_cache.k_scale_base is None:
+            k_scale = torch.tensor(1.0, device='cuda')
+        else:
+            k_scale = kv_cache.k_scale_base
+        if kv_cache.v_scale_base is None:
+            v_scale = torch.tensor(1.0, device='cuda')
+        else:
+            v_scale = kv_cache.v_scale_base
+        #logging.info(f"before cache: {q.shape=}, {k.shape=}, {v.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}")
+        
+        ops.reshape_and_cache_cuda(k_reshaped, 
+                                   v_reshaped, 
+                                   k_cache,
+                                   v_cache,
+                                   params["slot_mapping"],
+                                   'auto',
+                                   k_scale,
+                                   v_scale)
         return q
 
 # Simple data structure for fmha_params
@@ -252,8 +302,8 @@ class TorchNativePrefillAttnOp():
         self, config: GptInitModelParameters
     ):
         self.head_num = config.head_num
-        self.head_dim = config.hidden_size // config.head_num
         self.head_num_kv = config.head_num_kv
+        self.head_dim = config.hidden_size // config.head_num_kv
         self.kv_cache_data_type = config.kv_cache_data_type
         self.softmax_scale = 1 / self.head_dim ** 0.5
     
@@ -270,7 +320,9 @@ class TorchNativePrefillAttnOp():
         self.fmha_params = FMHAParams(
             batch_size=batch_size,
             max_seq_len=max_seq_len,
-            input_lengths=attn_inputs.input_lengths
+            input_lengths=attn_inputs.input_lengths,
+            kv_cache_block_id_device=attn_inputs.kv_cache_block_id_device,
+            kv_cache_block_id_host=attn_inputs.kv_cache_block_id_host
         )
         return self.fmha_params
     
@@ -280,24 +332,37 @@ class TorchNativePrefillAttnOp():
         # k_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
         # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
         q_tensor, k_tensor, v_tensor = qkv[0],qkv[1],qkv[2]
-        
+        q_tensor = q_tensor.reshape(-1, self.head_num, self.head_dim)
+
+         # 计算cu_seqlens
+        cu_seqlens = torch.zeros(fmha_params.batch_size + 1, dtype=torch.int32, device='cpu')
+        # 计算input_lengths的累积和
+        # input_lengths.cumsum(0) 会得到 [len1, len1+len2, len1+len2+len3, ...]
+        cumulative_lengths = fmha_params.input_lengths.cumsum(0)
+        # 将累积长度赋值给cu_seqlens的后半部分
+        cu_seqlens[1:] = cumulative_lengths
+        cu_seqlens = cu_seqlens.to(q_tensor.device)
+
         key_cache = kv_cache.k_cache_base
         value_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
-        print(f"{key_cache.shape=}, {value_cache.shape=}")
+        output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
+        seqused_k = fmha_params.input_lengths.cuda()
+
+        print(f"{q_tensor.shape=}, {key_cache.shape=}, {value_cache.shape=}")
         vllm_flash_attn_varlen_func(
                     q=q_tensor,
                     k=key_cache,
                     v=value_cache,
-                    out=output[:num_actual_tokens],
-                    cu_seqlens_q=cu_seqlens_q,
-                    max_seqlen_q=max_seqlen_q,
+                    out=output,
+                    cu_seqlens_q=cu_seqlens,
+                    max_seqlen_q=cu_seqlens.max().item(),
                     seqused_k=seqused_k,
-                    max_seqlen_k=max_seqlen_k,
+                    max_seqlen_k=fmha_params.max_seq_len,
                     softmax_scale=self.softmax_scale,
                     causal=True,
                     alibi_slopes=None,
                     window_size=(-1, -1),
-                    block_table=fmha_params.block_table,
+                    block_table=fmha_params.kv_cache_block_id_device,
                     softcap=0,
                     scheduler_metadata=None,
                     # fa_version=self.vllm_flash_attn_version,
@@ -423,9 +488,10 @@ class TorchNativeDecodeAttnOp():
         self, config: GptInitModelParameters
     ):
         self.head_num = config.head_num
-        self.head_dim = config.hidden_size // config.head_num
         self.head_num_kv = config.head_num_kv
+        self.head_dim = config.hidden_size // config.head_num_kv
         self.kv_cache_data_type = config.kv_cache_data_type
+        self.softmax_scale = 1 / self.head_dim ** 0.5
 
     def support(self, attn_inputs: PyAttentionInputs) -> bool:
         # 支持所有输入
@@ -445,12 +511,53 @@ class TorchNativeDecodeAttnOp():
             batch_size=batch_size,
             max_seq_len=max_seq_len,
             seq_lens = seq_lens,
+            input_lengths=attn_inputs.input_lengths,
             kv_cache_block_id_host = kv_cache_block_id_host,
             kv_cache_block_id_device = kv_cache_block_id_device
         )
         return self.fmha_params
     
     def forward(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
+        q_tensor = query.reshape(-1, self.head_num, self.head_dim)
+
+         # 计算cu_seqlens
+        cu_seqlens = torch.zeros(fmha_params.batch_size + 1, dtype=torch.int32, device='cpu')
+        # 计算input_lengths的累积和
+        # input_lengths.cumsum(0) 会得到 [len1, len1+len2, len1+len2+len3, ...]
+        cumulative_lengths = fmha_params.input_lengths.cumsum(0)
+        # 将累积长度赋值给cu_seqlens的后半部分
+        cu_seqlens[1:] = cumulative_lengths
+        cu_seqlens = cu_seqlens.to(q_tensor.device)
+
+        key_cache = kv_cache.k_cache_base
+        value_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
+        seqused_k = fmha_params.input_lengths.cuda()
+
+        print(f"{q_tensor.shape=}, {key_cache.shape=}, {value_cache.shape=}, {cu_seqlens=}, {seqused_k=}")
+        vllm_flash_attn_varlen_func(
+                    q=q_tensor,
+                    k=key_cache,
+                    v=value_cache,
+                    out=output,
+                    cu_seqlens_q=cu_seqlens,
+                    max_seqlen_q=cu_seqlens.max().item(),
+                    seqused_k=seqused_k,
+                    max_seqlen_k=fmha_params.max_seq_len,
+                    softmax_scale=self.softmax_scale,
+                    causal=True,
+                    alibi_slopes=None,
+                    window_size=(-1, -1),
+                    block_table=fmha_params.kv_cache_block_id_device,
+                    softcap=0,
+                    scheduler_metadata=None,
+                    # fa_version=self.vllm_flash_attn_version,
+                    is_prefix_cache=True,
+        )
+
+        return output
+
+    def forward_fa_aiter_layout(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
         # 1. 基础参数准备
         num_seqs, num_heads, head_size = query.shape # [batch_size, q_num_heads, head_size]
         seq_lens = fmha_params.seq_lens
