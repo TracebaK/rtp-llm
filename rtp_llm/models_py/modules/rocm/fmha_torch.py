@@ -85,9 +85,9 @@ class DtkRopeKVCachePrefillOp:
             'kv_cache_block_id_device': kv_cache_block_id_device,
             'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
             # 添加其他必要的配置
-            'head_num': 16,
-            'kv_head_num': 8,
-            'size_per_head': 128,
+            'head_num': self.gpt_init_parameter.head_num,
+            'kv_head_num': self.gpt_init_parameter.head_num_kv,
+            'size_per_head': self.gpt_init_parameter.size_per_head,
             'positions': positions,
             'slot_mapping': slot_mapping
         }
@@ -102,7 +102,7 @@ class DtkRopeKVCachePrefillOp:
         k_reshaped = k.reshape(-1, params["kv_head_num"], params["size_per_head"])
         v_reshaped = v.reshape(-1, params["kv_head_num"], params["size_per_head"])
         k_cache = kv_cache.k_cache_base
-        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        v_cache = kv_cache.v_cache_base
         if kv_cache.k_scale_base is None:
             k_scale = torch.tensor(1.0, device='cuda')
         else:
@@ -111,7 +111,7 @@ class DtkRopeKVCachePrefillOp:
             v_scale = torch.tensor(1.0, device='cuda')
         else:
             v_scale = kv_cache.v_scale_base
-        #logging.info(f"before cache: {q.shape=}, {k.shape=}, {v.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}")
+        logging.info(f"before cache: {k_reshaped.shape=}, {v_reshaped.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}, {v_cache.dtype=}, {params['slot_mapping']=}")
         
         ops.reshape_and_cache_cuda(k_reshaped, 
                                    v_reshaped, 
@@ -121,6 +121,7 @@ class DtkRopeKVCachePrefillOp:
                                    'auto',
                                    k_scale,
                                    v_scale)
+        logging.info(f"after kvcache: k={k_cache[1,0,0,:].detach().cpu().tolist()}, v={v_cache[1,0,:,0].detach().cpu().tolist()}")
         return q, k, v
 
 
@@ -136,7 +137,6 @@ class DtkRopeKVCacheDecodeOp:
         )
 
     def prepare(self, attn_inputs: PyAttentionInputs):
-        print(f"{attn_inputs.input_lengths=},{attn_inputs.cu_seqlens=},{attn_inputs.sequence_lengths=}")
         batch_size = attn_inputs.input_lengths.shape[0]
         block_size = self.gpt_init_parameter.seq_size_per_block
 
@@ -160,7 +160,7 @@ class DtkRopeKVCacheDecodeOp:
         cu_seqlens[1:] = cumulative_lengths
 
         # 构造positions
-        positions = attn_inputs.sequence_lengths.cpu() + 1
+        positions = attn_inputs.sequence_lengths.cpu()
         
         # 构造slot_mapping
         seq_lens = attn_inputs.sequence_lengths
@@ -179,7 +179,7 @@ class DtkRopeKVCacheDecodeOp:
         cu_seqlens = cu_seqlens.to('cuda')
         cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
-        logging.info(f"DtkRopeKVCacheDecodeOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
+        #logging.info(f"DtkRopeKVCacheDecodeOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
@@ -211,7 +211,7 @@ class DtkRopeKVCacheDecodeOp:
         k_reshaped = k.reshape(-1, params["kv_head_num"], params["size_per_head"])
         v_reshaped = v.reshape(-1, params["kv_head_num"], params["size_per_head"])
         k_cache = kv_cache.k_cache_base
-        v_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        v_cache = kv_cache.v_cache_base
         if kv_cache.k_scale_base is None:
             k_scale = torch.tensor(1.0, device='cuda')
         else:
@@ -344,7 +344,7 @@ class TorchNativePrefillAttnOp():
         cu_seqlens = cu_seqlens.to(q_tensor.device)
 
         key_cache = kv_cache.k_cache_base
-        value_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        value_cache = kv_cache.v_cache_base
         output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
         seqused_k = fmha_params.input_lengths.cuda()
 
@@ -530,11 +530,11 @@ class TorchNativeDecodeAttnOp():
         cu_seqlens = cu_seqlens.to(q_tensor.device)
 
         key_cache = kv_cache.k_cache_base
-        value_cache = kv_cache.v_cache_base.permute(0, 1, 3, 2)
+        value_cache = kv_cache.v_cache_base
         output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
         seqused_k = fmha_params.input_lengths.cuda()
 
-        print(f"{q_tensor.shape=}, {key_cache.shape=}, {value_cache.shape=}, {cu_seqlens=}, {seqused_k=}")
+        print(f"{q_tensor.shape=}, {key_cache.shape=}, {value_cache.shape=}, {cu_seqlens=}, {seqused_k=}, k: {key_cache[1, 0, 1, :].detach().cpu().tolist()}, v: {value_cache[1, 0, 1, :].detach().cpu().tolist()}")
         vllm_flash_attn_varlen_func(
                     q=q_tensor,
                     k=key_cache,

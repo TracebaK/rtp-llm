@@ -1,6 +1,8 @@
 import logging
+import gc
 from typing import Any, Optional
 
+import torch
 from torch import Tensor, nn
 
 from rtp_llm.config.gpt_init_model_parameters import GptInitModelParameters

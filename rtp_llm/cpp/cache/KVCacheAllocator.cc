@@ -147,8 +147,9 @@ void KVCacheAllocator::initKvCacheNormal() {
                                                            std::vector<size_t>{(size_t)config_.layer_num,
                                                                                (size_t)config_.block_nums,
                                                                                (size_t)config_.local_head_num_kv,
-                                                                               (size_t)config_.seq_size_per_block,
-                                                                               (size_t)config_.size_per_head},
+                                                                               //(size_t)config_.seq_size_per_block,
+                                                                               (size_t)config_.size_per_head,
+									       (size_t)config_.seq_size_per_block},
                                                            (int8_t*)cache_base_ptr_ + kv_cache_.k_blocks->sizeBytes());
     // memset k_blocks and v_blocks
 #ifdef USING_ROCM
