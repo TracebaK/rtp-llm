@@ -69,7 +69,7 @@ class VllmRMSNorm(BaseNorm):
         super().__init__(weight, eps)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        logger.debug(f"VllmRMSNorm {hidden_states.is_contiguous()=}, {hidden_states.shape}, {hidden_states.dtype}")
+        #logger.debug(f"VllmRMSNorm {hidden_states.is_contiguous()=}, {hidden_states.shape}, {hidden_states.dtype}")
         out = torch.empty_like(hidden_states)
         if True:
             ops.rms_norm_opt(out, hidden_states, self.weight, self.variance_epsilon)

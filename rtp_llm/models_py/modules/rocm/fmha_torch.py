@@ -71,7 +71,7 @@ class DtkRopeKVCachePrefillOp:
         cu_seqlens = cu_seqlens.to('cuda')
         cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
-        logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
+        #logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
@@ -111,7 +111,7 @@ class DtkRopeKVCachePrefillOp:
             v_scale = torch.tensor(1.0, device='cuda')
         else:
             v_scale = kv_cache.v_scale_base
-        logging.info(f"before cache: {k_reshaped.shape=}, {v_reshaped.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}, {v_cache.dtype=}, {params['slot_mapping']=}")
+        #logging.info(f"before cache: {k_reshaped.shape=}, {v_reshaped.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}, {v_cache.dtype=}, {params['slot_mapping']=}")
         
         ops.reshape_and_cache_cuda(k_reshaped, 
                                    v_reshaped, 
@@ -121,7 +121,7 @@ class DtkRopeKVCachePrefillOp:
                                    'auto',
                                    k_scale,
                                    v_scale)
-        logging.info(f"after kvcache: k={k_cache[1,0,0,:].detach().cpu().tolist()}, v={v_cache[1,0,:,0].detach().cpu().tolist()}")
+        #logging.info(f"after kvcache: k={k_cache[1,0,0,:].detach().cpu().tolist()}, v={v_cache[1,0,:,0].detach().cpu().tolist()}")
         return q, k, v
 
 
@@ -303,7 +303,7 @@ class TorchNativePrefillAttnOp():
     ):
         self.head_num = config.head_num
         self.head_num_kv = config.head_num_kv
-        self.head_dim = config.hidden_size // config.head_num_kv
+        self.head_dim = config.size_per_head
         self.kv_cache_data_type = config.kv_cache_data_type
         self.softmax_scale = 1 / self.head_dim ** 0.5
     
@@ -333,8 +333,8 @@ class TorchNativePrefillAttnOp():
         # v_tensor: {batch_size, head_num_kv, seq_len_with_prefix, head_dim}
         q_tensor, k_tensor, v_tensor = qkv[0],qkv[1],qkv[2]
         q_tensor = q_tensor.reshape(-1, self.head_num, self.head_dim)
-
-         # 计算cu_seqlens
+        
+        # 计算cu_seqlens
         cu_seqlens = torch.zeros(fmha_params.batch_size + 1, dtype=torch.int32, device='cpu')
         # 计算input_lengths的累积和
         # input_lengths.cumsum(0) 会得到 [len1, len1+len2, len1+len2+len3, ...]
@@ -347,8 +347,7 @@ class TorchNativePrefillAttnOp():
         value_cache = kv_cache.v_cache_base
         output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
         seqused_k = fmha_params.input_lengths.cuda()
-
-        print(f"{q_tensor.shape=}, {key_cache.shape=}, {value_cache.shape=}")
+        
         vllm_flash_attn_varlen_func(
                     q=q_tensor,
                     k=key_cache,
@@ -489,7 +488,7 @@ class TorchNativeDecodeAttnOp():
     ):
         self.head_num = config.head_num
         self.head_num_kv = config.head_num_kv
-        self.head_dim = config.hidden_size // config.head_num_kv
+        self.head_dim = config.size_per_head
         self.kv_cache_data_type = config.kv_cache_data_type
         self.softmax_scale = 1 / self.head_dim ** 0.5
 
@@ -520,21 +519,17 @@ class TorchNativeDecodeAttnOp():
     def forward(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
         q_tensor = query.reshape(-1, self.head_num, self.head_dim)
 
-         # 计算cu_seqlens
-        cu_seqlens = torch.zeros(fmha_params.batch_size + 1, dtype=torch.int32, device='cpu')
-        # 计算input_lengths的累积和
-        # input_lengths.cumsum(0) 会得到 [len1, len1+len2, len1+len2+len3, ...]
-        cumulative_lengths = fmha_params.input_lengths.cumsum(0)
-        # 将累积长度赋值给cu_seqlens的后半部分
-        cu_seqlens[1:] = cumulative_lengths
+        # 计算cu_seqlens
+        batch_size = fmha_params.input_lengths.shape[0]
+        cu_seqlens = torch.arange(batch_size + 1, dtype=torch.int32, device='cpu')
         cu_seqlens = cu_seqlens.to(q_tensor.device)
 
         key_cache = kv_cache.k_cache_base
         value_cache = kv_cache.v_cache_base
         output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
-        seqused_k = fmha_params.input_lengths.cuda()
+        seqused_k = fmha_params.seq_lens
 
-        print(f"{q_tensor.shape=}, {key_cache.shape=}, {value_cache.shape=}, {cu_seqlens=}, {seqused_k=}, k: {key_cache[1, 0, 1, :].detach().cpu().tolist()}, v: {value_cache[1, 0, 1, :].detach().cpu().tolist()}")
+        #print(f"{fmha_params.seq_lens=}, {cu_seqlens=}, {seqused_k=}, max_seqlen_k={seqused_k.max().item()}, k: key_cache[1, 0, 0, :].detach().cpu().tolist(), v: value_cache[1, 0, :, 0].detach().cpu().tolist()")
         vllm_flash_attn_varlen_func(
                     q=q_tensor,
                     k=key_cache,
@@ -543,7 +538,7 @@ class TorchNativeDecodeAttnOp():
                     cu_seqlens_q=cu_seqlens,
                     max_seqlen_q=cu_seqlens.max().item(),
                     seqused_k=seqused_k,
-                    max_seqlen_k=fmha_params.max_seq_len,
+                    max_seqlen_k=seqused_k.max().item(),
                     softmax_scale=self.softmax_scale,
                     causal=True,
                     alibi_slopes=None,
