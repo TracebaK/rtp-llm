@@ -192,6 +192,8 @@ class DtkRopeKVCacheDecodeOp:
             'kv_cache_block_id_host': kv_cache_block_id_host,
             'kv_cache_block_id_device': kv_cache_block_id_device,
             'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
+            'k_scale': torch.tensor(1.0, device='cuda'),
+            'v_scale': torch.tensor(1.0, device='cuda'),
             # 添加其他必要的配置
             'head_num': self.gpt_init_parameter.head_num,
             'kv_head_num': self.gpt_init_parameter.head_num_kv,
@@ -212,14 +214,14 @@ class DtkRopeKVCacheDecodeOp:
         v_reshaped = v.reshape(-1, params["kv_head_num"], params["size_per_head"])
         k_cache = kv_cache.k_cache_base
         v_cache = kv_cache.v_cache_base
-        if kv_cache.k_scale_base is None:
-            k_scale = torch.tensor(1.0, device='cuda')
-        else:
-            k_scale = kv_cache.k_scale_base
-        if kv_cache.v_scale_base is None:
-            v_scale = torch.tensor(1.0, device='cuda')
-        else:
-            v_scale = kv_cache.v_scale_base
+        #if kv_cache.k_scale_base is None:
+        #    k_scale = torch.tensor(1.0, device='cuda')
+        #else:
+        #    k_scale = kv_cache.k_scale_base
+        #if kv_cache.v_scale_base is None:
+        #    v_scale = torch.tensor(1.0, device='cuda')
+        #else:
+        #    v_scale = kv_cache.v_scale_base
         #logging.info(f"before cache: {q.shape=}, {k.shape=}, {v.shape=}, {k_cache.shape=}, {k_cache.dtype=}, {v_cache.shape=}")
         
         ops.reshape_and_cache_cuda(k_reshaped, 
@@ -228,8 +230,8 @@ class DtkRopeKVCacheDecodeOp:
                                    v_cache,
                                    params["slot_mapping"],
                                    'auto',
-                                   k_scale,
-                                   v_scale)
+                                   params["k_scale"],
+                                   params["v_scale"])
         return q
 
 # Simple data structure for fmha_params
@@ -501,6 +503,7 @@ class TorchNativeDecodeAttnOp():
         batch_size = attn_inputs.input_lengths.size(0)
         max_seq_len = attn_inputs.input_lengths.max().item()
         seq_lens = attn_inputs.sequence_lengths.cpu() + 1
+        max_seqlen_k = seq_lens.max().item()
         seq_lens = seq_lens.cuda()
         kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
         kv_cache_block_id_device = attn_inputs.kv_cache_block_id_device
@@ -514,20 +517,24 @@ class TorchNativeDecodeAttnOp():
             kv_cache_block_id_host = kv_cache_block_id_host,
             kv_cache_block_id_device = kv_cache_block_id_device
         )
+        cu_seqlens_q = torch.arange(batch_size + 1, dtype=torch.int32, device='cuda')
+        self.fmha_params.cu_seqlens_q = cu_seqlens_q
+        self.fmha_params.max_seqlen_q = batch_size
+        self.fmha_params.max_seqlen_k = max_seqlen_k
         return self.fmha_params
     
     def forward(self, query: torch.Tensor, kv_cache: Optional[KVCache] , fmha_params:Optional[Any]) -> torch.Tensor:
         q_tensor = query.reshape(-1, self.head_num, self.head_dim)
 
         # 计算cu_seqlens
-        batch_size = fmha_params.input_lengths.shape[0]
-        cu_seqlens = torch.arange(batch_size + 1, dtype=torch.int32, device='cpu')
-        cu_seqlens = cu_seqlens.to(q_tensor.device)
+        #batch_size = fmha_params.input_lengths.shape[0]
+        #cu_seqlens = torch.arange(batch_size + 1, dtype=torch.int32, device='cpu')
+        #cu_seqlens = cu_seqlens.to(q_tensor.device)
 
         key_cache = kv_cache.k_cache_base
         value_cache = kv_cache.v_cache_base
         output = torch.zeros(q_tensor.shape, dtype=q_tensor.dtype, device=q_tensor.device)
-        seqused_k = fmha_params.seq_lens
+        #seqused_k = fmha_params.seq_lens
 
         #print(f"{fmha_params.seq_lens=}, {cu_seqlens=}, {seqused_k=}, max_seqlen_k={seqused_k.max().item()}, k: key_cache[1, 0, 0, :].detach().cpu().tolist(), v: value_cache[1, 0, :, 0].detach().cpu().tolist()")
         vllm_flash_attn_varlen_func(
@@ -535,10 +542,10 @@ class TorchNativeDecodeAttnOp():
                     k=key_cache,
                     v=value_cache,
                     out=output,
-                    cu_seqlens_q=cu_seqlens,
-                    max_seqlen_q=cu_seqlens.max().item(),
-                    seqused_k=seqused_k,
-                    max_seqlen_k=seqused_k.max().item(),
+                    cu_seqlens_q=fmha_params.cu_seqlens_q,
+                    max_seqlen_q=fmha_params.max_seqlen_q,
+                    seqused_k=fmha_params.seq_lens,
+                    max_seqlen_k=fmha_params.max_seqlen_k,
                     softmax_scale=self.softmax_scale,
                     causal=True,
                     alibi_slopes=None,

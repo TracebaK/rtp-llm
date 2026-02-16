@@ -125,25 +125,42 @@ class Qwen3Model(GptModelBase):
         )
 
     def forward(self, inputs: PyModelInputs) -> PyModelOutputs:
-        # print_pymodel_inputs(inputs)
+        """
         input_ids: torch.Tensor = inputs.input_ids
-        # logger.debug(f"==={input_ids.detach().cpu().tolist()=}")
         inputs_embeds = self.embed_tokens(input_ids)
-        # logger.debug(f"===embeds: {inputs_embeds.flatten()[-20:].detach().cpu().to(torch.float32).tolist()}")
-        #logger.info(f"Qwen3 forward {inputs_embeds.shape=}, {inputs_embeds.dtype=}")
         hidden_states = inputs_embeds
         attention_inputs: PyAttentionInputs = inputs.attention_inputs
         fmha_impl = self.get_fmha_impl(attention_inputs)
         for i, decoder_layer in enumerate(self.layers[: self.layer_num]):
-            # logger.debug(f"=== Layer {i} ===")
             hidden_states = decoder_layer(
                 hidden_states,
                 fmha_impl,
                 kv_cache=self.kv_cache.get_layer_cache(i) if self.kv_cache else None,
             )
-            # logger.debug(f"=== Layer {i} output {hidden_states.flatten()[-20:].detach().cpu().tolist()}===")
         hidden_states = self.norm(hidden_states)
         return PyModelOutputs(hidden_states, fmha_impl.fmha_params)
+        """
+        from torch.profiler import profile, ProfilerActivity, tensorboard_trace_handler
+        with profile(
+            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+            on_trace_ready=tensorboard_trace_handler("./logs/qwen_profile"),
+            record_shapes=True,  # 记录输入形状
+            with_stack=True     # 记录调用栈
+        ) as prof:
+
+            input_ids: torch.Tensor = inputs.input_ids
+            inputs_embeds = self.embed_tokens(input_ids)
+            hidden_states = inputs_embeds
+            attention_inputs: PyAttentionInputs = inputs.attention_inputs
+            fmha_impl = self.get_fmha_impl(attention_inputs)
+            for i, decoder_layer in enumerate(self.layers[: self.layer_num]):
+                hidden_states = decoder_layer(
+                    hidden_states,
+                    fmha_impl,
+                    kv_cache=self.kv_cache.get_layer_cache(i) if self.kv_cache else None,
+                )
+            hidden_states = self.norm(hidden_states)
+            return PyModelOutputs(hidden_states, fmha_impl.fmha_params)
 
 
 __all__ = [
