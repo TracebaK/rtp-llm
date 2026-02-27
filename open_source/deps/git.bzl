@@ -79,13 +79,15 @@ def git_deps():
 
     git_repository(
         name = "rules_cc",
-        remote = "https://www.ghproxy.cn/github.com/bazelbuild/rules_cc.git",
-        commit = "1477dbab59b401daa94acedbeaefe79bf9112167",
+        #remote = "https://www.ghproxy.cn/github.com/bazelbuild/rules_cc.git",
+        remote = "https://github.com/bazelbuild/rules_cc.git",
+	commit = "1477dbab59b401daa94acedbeaefe79bf9112167",
     )
 
     git_repository(
         name = "rules_python",
-        remote = "https://www.ghproxy.cn/github.com/bazelbuild/rules_python.git",
+#        remote = "https://www.ghproxy.cn/github.com/bazelbuild/rules_python.git",
+        remote = "https://github.com/bazelbuild/rules_python.git",
         commit = "084b877c98b580839ceab2b071b02fc6768f3de6",
         patches = [
             "//patches/rules_python:0001-add-extra-data.patch",
@@ -171,8 +173,9 @@ def git_deps():
 
     git_repository(
         name = "com_google_googletest",
-        remote = "https://www.ghproxy.cn/github.com/google/googletest.git",
-        commit = "f8d7d77c06936315286eb55f8de22cd23c188571",
+        #remote = "https://www.ghproxy.cn/github.com/google/googletest.git",
+        remote = "https://github.com/google/googletest.git",
+	commit = "f8d7d77c06936315286eb55f8de22cd23c188571",
         shallow_since = "1640057570 +0800",
     )
 
@@ -210,8 +213,9 @@ def git_deps():
 
     git_repository(
         name = "com_google_absl",
-        remote = "https://www.ghproxy.cn/github.com/abseil/abseil-cpp.git",
-        patch_cmds = [
+        #remote = "https://www.ghproxy.cn/github.com/abseil/abseil-cpp.git",
+        remote = "https://github.com/abseil/abseil-cpp.git",
+	patch_cmds = [
             "sed -i -e 's/^#define ABSL_OPTION_USE_STD_STRING_VIEW 2/#define ABSL_OPTION_USE_STD_STRING_VIEW 0/' 'absl/base/options.h'",
             "sed 's$@bazel_tools//platforms:(linux|osx|windows|android|freebsd|ios|os)$@platforms//os:\\1$' -E -i absl/BUILD.bazel",
             "sed 's$@bazel_tools//platforms:(cpu|x86_32|x86_64|ppc|arm|aarch64|s390x)$@platforms//cpu:\\1$' -i -E absl/BUILD.bazel",
@@ -229,8 +233,9 @@ def git_deps():
 
     new_git_repository(
         name = "rapidjson",
-        remote = "https://www.ghproxy.cn/github.com/Tencent/rapidjson.git",
-        # tag = "v1.1.0",
+        #remote = "https://www.ghproxy.cn/github.com/Tencent/rapidjson.git",
+        remote = "https://github.com/Tencent/rapidjson.git",
+	# tag = "v1.1.0",
         commit = "f54b0e47a08782a6131cc3d60f94d038fa6e0a51",
         patches = ["//3rdparty/rapidjson:0001-document_h.patch"],
         build_file = clean_dep("//3rdparty/rapidjson:rapidjson.BUILD"),
@@ -238,8 +243,9 @@ def git_deps():
 
     new_git_repository(
         name = "havenask",
-        remote = "https://www.ghproxy.cn/github.com/alibaba/havenask.git",
-        commit = "3c973500afbd40933eb0a80cfdfb6592274377fb",
+        #remote = "https://www.ghproxy.cn/github.com/alibaba/havenask.git",
+        remote = "https://github.com/alibaba/havenask.git",
+	commit = "3c973500afbd40933eb0a80cfdfb6592274377fb",
         shallow_since = "1704038400 +0800",
         patches=[
             "//patches/havenask:havenask.patch",
@@ -272,8 +278,9 @@ def git_deps():
 
     git_repository(
         name = "grpc",
-        remote = "https://www.ghproxy.cn/github.com/grpc/grpc.git",
-        commit = "109c570727c3089fef655edcdd0dd02cc5958010",
+        #remote = "https://www.ghproxy.cn/github.com/grpc/grpc.git",
+        remote = "https://github.com/grpc/grpc.git",
+	commit = "109c570727c3089fef655edcdd0dd02cc5958010",
         patches = ["//patches/grpc:0001-Rename-gettid-functions.patch"],
         shallow_since = "1518192000 +0800",
     )
@@ -291,7 +298,7 @@ def git_deps():
         sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
         strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
         urls = [
-            "https://mirror.bazel.build/github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
+            #"https://mirror.bazel.build/github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
             "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
         ],
     )

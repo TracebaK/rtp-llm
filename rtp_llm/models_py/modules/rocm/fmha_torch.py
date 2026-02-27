@@ -48,18 +48,18 @@ class DtkRopeKVCachePrefillOp:
         cu_seqlens[1:] = cumulative_lengths
 
         # 构造positions
-        seq_lens = cu_seqlens[1:] - cu_seqlens[:-1] # 计算每个序列的长度 [3, 4]
+        # seq_lens = cu_seqlens[1:] - cu_seqlens[:-1] # 计算每个序列的长度 [3, 4]
         positions = torch.ones(cu_seqlens[-1].item(), dtype=torch.long, device='cpu')
         first_indices = cu_seqlens[:-1]
-        reset_values = torch.cat([torch.tensor([0]), seq_lens[:-1]])
+        reset_values = torch.cat([torch.tensor([0]), attn_inputs.input_lengths[:-1]])
         positions[first_indices] = 1 - reset_values 
         positions = positions.cumsum(0) - 1
         
         # 构造slot_mapping
         block_indices = positions // block_size
         seq_ids = torch.repeat_interleave(
-            torch.arange(len(seq_lens)), 
-            seq_lens,
+            torch.arange(len(attn_inputs.input_lengths)), 
+            attn_inputs.input_lengths,
         )
         physical_block_ids = kv_cache_block_id_host[seq_ids, block_indices]
         block_offsets = positions % block_size
@@ -68,22 +68,22 @@ class DtkRopeKVCachePrefillOp:
         # 移动到GPU
         positions = positions.to('cuda')
         slot_mapping = slot_mapping.to('cuda')
-        cu_seqlens = cu_seqlens.to('cuda')
-        cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
+        #cu_seqlens = cu_seqlens.to('cuda')
+        #cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
         #logging.info(f"DtkRopeKVCachePrefillOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
-            'cu_seqlens': cu_seqlens,
-            'cu_kv_seqlens': cu_kv_seqlens,
-            'max_seq_len': attn_inputs.input_lengths.max().item(),
-            'kv_block_offset': attn_inputs.kv_block_offset,
-            'batch_size': batch_size,
-            'input_lengths': attn_inputs.input_lengths,
-            'kv_cache_block_id_host': kv_cache_block_id_host,
-            'kv_cache_block_id_device': kv_cache_block_id_device,
-            'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
+            #'cu_seqlens': cu_seqlens,
+            #'cu_kv_seqlens': cu_kv_seqlens,
+            #'max_seq_len': attn_inputs.input_lengths.max().item(),
+            #'kv_block_offset': attn_inputs.kv_block_offset,
+            #'batch_size': batch_size,
+            #'input_lengths': attn_inputs.input_lengths,
+            #'kv_cache_block_id_host': kv_cache_block_id_host,
+            #'kv_cache_block_id_device': kv_cache_block_id_device,
+            #'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
             # 添加其他必要的配置
             'head_num': self.gpt_init_parameter.head_num,
             'kv_head_num': self.gpt_init_parameter.head_num_kv,
@@ -160,38 +160,38 @@ class DtkRopeKVCacheDecodeOp:
         cu_seqlens[1:] = cumulative_lengths
 
         # 构造positions
-        positions = attn_inputs.sequence_lengths.cpu()
+        positions = attn_inputs.sequence_lengths.to(dtype=torch.long, copy=True)
         
         # 构造slot_mapping
-        seq_lens = attn_inputs.sequence_lengths
+        # seq_lens = attn_inputs.sequence_lengths
         block_indices = positions // block_size
         seq_ids = torch.repeat_interleave(
-            torch.arange(len(seq_lens)), 
+            torch.arange(len(attn_inputs.input_lengths)), 
             1,
         )
         physical_block_ids = kv_cache_block_id_host[seq_ids, block_indices]
         block_offsets = positions % block_size
         slot_mapping = physical_block_ids * block_size + block_offsets
-
+        
         # 移动到GPU
-        positions = positions.long().to('cuda')
-        slot_mapping = slot_mapping.long().to('cuda')
-        cu_seqlens = cu_seqlens.to('cuda')
-        cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
+        positions = positions.to('cuda')
+        slot_mapping = slot_mapping.to('cuda')
+        #cu_seqlens = cu_seqlens.to('cuda')
+        #cu_kv_seqlens = cu_seqlens  # KV序列长度通常与Q相同
         
         #logging.info(f"DtkRopeKVCacheDecodeOp prepare: \n{attn_inputs.kv_cache_block_id_host=}\n{attn_inputs.kv_cache_block_id_device=}\n{attn_inputs.prefix_lengths=}\n{attn_inputs.sequence_lengths=}\n{attn_inputs.input_lengths=}\n{cu_seqlens=}\n{positions=}\n{slot_mapping=}")
         # 4. 准备注意力参数字典
         attn_params = {
             #'attn_type': self._torch_dtype_to_data_type(attn_inputs['dtype']),
-            'cu_seqlens': cu_seqlens,
-            'cu_kv_seqlens': cu_kv_seqlens,
-            'max_seq_len': attn_inputs.input_lengths.max().item(),
-            'kv_block_offset': attn_inputs.kv_block_offset,
-            'batch_size': batch_size,
-            'input_lengths': attn_inputs.input_lengths,
-            'kv_cache_block_id_host': kv_cache_block_id_host,
-            'kv_cache_block_id_device': kv_cache_block_id_device,
-            'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
+            #'cu_seqlens': cu_seqlens,
+            #'cu_kv_seqlens': cu_kv_seqlens,
+            #'max_seq_len': attn_inputs.input_lengths.max().item(),
+            #'kv_block_offset': attn_inputs.kv_block_offset,
+            #'batch_size': batch_size,
+            #'input_lengths': attn_inputs.input_lengths,
+            #'kv_cache_block_id_host': kv_cache_block_id_host,
+            #'kv_cache_block_id_device': kv_cache_block_id_device,
+            #'kv_cache_dtype': self.gpt_init_parameter.kv_cache_data_type,
             'k_scale': torch.tensor(1.0, device='cuda'),
             'v_scale': torch.tensor(1.0, device='cuda'),
             # 添加其他必要的配置

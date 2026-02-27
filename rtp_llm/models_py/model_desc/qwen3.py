@@ -125,7 +125,7 @@ class Qwen3Model(GptModelBase):
         )
 
     def forward(self, inputs: PyModelInputs) -> PyModelOutputs:
-        """
+        #"""
         input_ids: torch.Tensor = inputs.input_ids
         inputs_embeds = self.embed_tokens(input_ids)
         hidden_states = inputs_embeds
@@ -161,7 +161,7 @@ class Qwen3Model(GptModelBase):
                 )
             hidden_states = self.norm(hidden_states)
             return PyModelOutputs(hidden_states, fmha_impl.fmha_params)
-
+        """
 
 __all__ = [
     "Qwen3Model",
