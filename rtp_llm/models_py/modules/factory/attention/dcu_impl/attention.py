@@ -162,7 +162,7 @@ class DcuPrefillAttnOp:
             attn_inputs=attn_inputs,
             is_prefill=True,
         )
-        kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
+        kv_cache_block_id_host = attn_inputs.kv_cache_block_id
         fmha_params.kv_cache_block_id_host = kv_cache_block_id_host
         if kv_cache_block_id_host is not None and kv_cache_block_id_host.numel() > 0:
             fmha_params.kv_cache_block_id_device = kv_cache_block_id_host.cuda()
@@ -248,7 +248,7 @@ class DcuDecodeAttnOp:
             enable_cuda_graph=self.enable_cuda_graph,
             graph_max_seq_len=self.max_seq_len,
         )
-        kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
+        kv_cache_block_id_host = attn_inputs.kv_cache_block_id
         fmha_params.kv_cache_block_id_host = kv_cache_block_id_host
         if kv_cache_block_id_host is not None and kv_cache_block_id_host.numel() > 0:
             fmha_params.kv_cache_block_id_device = kv_cache_block_id_host.cuda()
@@ -392,7 +392,7 @@ class DcuDecodeImpl(FMHAImplBase):
         # kv_cache_block_id_* fields are reserved for cache store outside the graph), so we must
         # source the block table from the kernel fields here. Promote 2-D -> 3-D so downstream
         # `[0]` group-index works.
-        block_id_host = attn_inputs.kv_cache_kernel_block_id_host
+        block_id_host = attn_inputs.kv_cache_kernel_block_id
         block_id_device = attn_inputs.kv_cache_kernel_block_id_device
         if block_id_host is not None and block_id_host.dim() == 2:
             block_id_host = block_id_host.unsqueeze(0)
@@ -404,9 +404,9 @@ class DcuDecodeImpl(FMHAImplBase):
             block_id_host,
             block_id_device,
         )
-        # rope's _compute_positions_and_slots also reads kv_cache_block_id_host[0]; expose the
-        # promoted kernel host tensor through that legacy field for the duration of replay.
-        attn_inputs.kv_cache_block_id_host = block_id_host
+        # rope's _compute_positions_and_slots also reads kv_cache_block_id[0]; expose the
+        # promoted kernel host tensor through that field for the duration of replay.
+        attn_inputs.kv_cache_block_id = block_id_host
         # Update rope positions and slot_mapping in-place for graph replay.
         self.rope_kvcache_impl.update_kv_cache_offset(attn_inputs)
 
