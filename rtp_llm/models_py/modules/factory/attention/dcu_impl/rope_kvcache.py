@@ -76,8 +76,8 @@ class FusedRopeKVCachePrefillOp:
     def prepare(self, attn_inputs: PyAttentionInputs):
         block_size = self.attn_configs.tokens_per_block
         kv_cache_block_id_host = None
-        if attn_inputs.kv_cache_block_id_host.numel() > 0:
-            kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
+        if attn_inputs.kv_cache_block_id.numel() > 0:
+            kv_cache_block_id_host = attn_inputs.kv_cache_block_id
         cu_seqlens = attn_inputs.cu_seqlens
 
         # 构造positions
@@ -184,7 +184,7 @@ class FusedRopeKVCacheDecodeOp:
 
     def _compute_positions_and_slots(self, attn_inputs: PyAttentionInputs):
         block_size = self.attn_configs.tokens_per_block
-        kv_cache_block_id_host = attn_inputs.kv_cache_block_id_host
+        kv_cache_block_id_host = attn_inputs.kv_cache_block_id
 
         positions = attn_inputs.sequence_lengths.to(dtype=torch.long, copy=True)
         block_indices = positions // block_size
@@ -202,7 +202,7 @@ class FusedRopeKVCacheDecodeOp:
         seq_lens = getattr(attn_inputs, "sequence_lengths", None)
         if seq_lens is None:
             return False
-        kv_host = getattr(attn_inputs, "kv_cache_block_id_host", None)
+        kv_host = getattr(attn_inputs, "kv_cache_block_id", None)
         if kv_host is None or kv_host.numel() == 0:
             return False
         return True
