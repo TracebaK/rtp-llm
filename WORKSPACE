@@ -55,6 +55,13 @@ load("//3rdparty/xgrammar:repositories.bzl", "xgrammar_deps")
 
 xgrammar_deps()
 
+# node169 mirror: pre-declare platforms so opentelemetry maybe() does not hit github
+http_archive(
+    name = "platforms",
+    sha256 = "218efe8ee736d26a3572663b374a253c012b716d8af0c07e842e82f238a0a7ee",
+    urls = ["file:///home/bazel_mirrors/platforms-0.0.10.tar.gz"],
+)
+
 load("@io_opentelemetry_cpp//bazel:repository.bzl", "opentelemetry_cpp_deps")
 
 opentelemetry_cpp_deps()
