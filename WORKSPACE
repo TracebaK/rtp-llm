@@ -62,6 +62,79 @@ http_archive(
     urls = ["file:///home/bazel_mirrors/platforms-0.0.10.tar.gz"],
 )
 
+# node169 mirror: opentelemetry-proto 1.6.0
+http_archive(
+    name = "com_github_opentelemetry_proto",
+    build_file = "@io_opentelemetry_cpp//bazel:opentelemetry_proto.BUILD",
+    sha256 = "92682778affe8d00cd36f68308b49295db34fce379bef0a781c50837eccbc3c0",
+    strip_prefix = "opentelemetry-proto-1.6.0",
+    urls = ["file:///home/bazel_mirrors/opentelemetry-proto-v1.6.0.tar.gz"],
+)
+
+# node169 mirrors for opentelemetry_cpp_deps (github unreachable)
+
+http_archive(
+    name = "com_github_grpc_grpc",
+    sha256 = "f40bde4ce2f31760f65dc49a2f50876f59077026494e67dccf23992548b1b04f",
+    strip_prefix = "grpc-1.62.0",
+    urls = ["file:///home/bazel_mirrors/grpc_grpc-f40bde4c.tar.gz"],
+)
+
+http_archive(
+    name = "github_nlohmann_json",
+    build_file = "@io_opentelemetry_cpp//bazel:nlohmann_json.BUILD",
+    sha256 = "b8cb0ef2dd7f57f18933997c9934bb1fa962594f701cd5a8d3c2c80541559372",
+    urls = ["file:///home/bazel_mirrors/github_nlohmann_json-b8cb0ef2.zip"],
+)
+
+http_archive(
+    name = "com_github_jupp0r_prometheus_cpp",
+    sha256 = "ac6e958405a29fbbea9db70b00fa3c420e16ad32e1baf941ab233ba031dd72ee",
+    strip_prefix = "prometheus-cpp-1.3.0",
+    urls = ["file:///home/bazel_mirrors/jupp0r_prometheus_cpp-ac6e9584.tar.gz"],
+)
+
+http_archive(
+    name = "com_github_opentracing",
+    sha256 = "5b170042da4d1c4c231df6594da120875429d5231e9baa5179822ee8d1054ac3",
+    strip_prefix = "opentracing-cpp-1.6.0",
+    urls = ["file:///home/bazel_mirrors/opentracing-5b170042.tar.gz"],
+)
+
+http_archive(
+    name = "com_github_google_benchmark",
+    sha256 = "6bc180a57d23d4d9515519f92b0c83d61b05b5bab188961f36ac7b06b0d9e9ce",
+    strip_prefix = "benchmark-1.8.3",
+    urls = ["file:///home/bazel_mirrors/google_benchmark-6bc180a5.tar.gz"],
+)
+
+http_archive(
+    name = "build_bazel_apple_support",
+    sha256 = "c4bb2b7367c484382300aee75be598b92f847896fb31bbd22f3a2346adf66a80",
+    urls = ["file:///home/bazel_mirrors/apple_support-c4bb2b73.tar.gz"],
+)
+
+http_archive(
+    name = "build_bazel_rules_apple",
+    sha256 = "b4df908ec14868369021182ab191dbd1f40830c9b300650d5dc389e0b9266c8d",
+    urls = ["file:///home/bazel_mirrors/rules_apple-b4df908e.tar.gz"],
+)
+
+http_archive(
+    name = "rules_foreign_cc",
+    sha256 = "69023642d5781c68911beda769f91fcbc8ca48711db935a75da7f6536b65047f",
+    strip_prefix = "rules_foreign_cc-0.6.0",
+    urls = ["file:///home/bazel_mirrors/rules_foreign_cc-69023642.tar.gz"],
+)
+
+http_archive(
+    name = "zlib",
+    build_file = "@io_opentelemetry_cpp//bazel:zlib.BUILD",
+    sha256 = "d14c38e313afc35a9a8760dadf26042f51ea0f5d154b0630a31da0540107fb98",
+    strip_prefix = "zlib-1.2.13",
+    urls = ["file:///home/bazel_mirrors/zlib-d14c38e3.tar.xz"],
+)
+
 load("@io_opentelemetry_cpp//bazel:repository.bzl", "opentelemetry_cpp_deps")
 
 opentelemetry_cpp_deps()
