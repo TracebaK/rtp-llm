@@ -93,4 +93,8 @@ def pip_deps():
         python_interpreter = "/opt/conda310/bin/python3",
         extra_pip_args = PIP_EXTRA_ARGS,
         timeout = 12000,
+        # aiter ships triton autotune configs whose file names contain ':' --
+        # invalid in bazel labels, so keep them out of the generated data glob
+        # (runtime reads them from the pip-installed wheel instead).
+        pip_data_exclude = ["site-packages/aiter/ops/triton/configs/**"],
     )

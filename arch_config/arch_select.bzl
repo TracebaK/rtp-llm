@@ -24,6 +24,11 @@ _CUDA13_DEFERRED = ["flash_attn", "flash-attn-3"]
 # gracefully, so the other platforms resolve it to nothing.
 _DSV4_PLATFORM_ONLY = ["xgrammar"]
 
+# aiter ships only in the DCU lock as a DAS prebuilt wheel; the ROCm backend
+# consumes the dedicated @aiter external repo instead, so on every other
+# platform this requirement resolves to nothing.
+_DCU_ONLY = ["aiter"]
+
 def requirement(names):
     for name in names:
         cuda13_x86_deps = [] if name in _CUDA13_DEFERRED else [requirement_gpu_cuda13(name)]
@@ -33,6 +38,16 @@ def requirement(names):
                 deps = select({
                     "@rtp_llm//:using_cuda13_x86": cuda13_x86_deps,
                     "@rtp_llm//:using_cuda12_9_x86": [requirement_gpu_cuda12_9(name)],
+                    "//conditions:default": [],
+                }),
+                visibility = ["//visibility:public"],
+            )
+            continue
+        if name in _DCU_ONLY:
+            native.py_library(
+                name = name,
+                deps = select({
+                    "@rtp_llm//:using_dcu": [requirement_gpu_dcu(name)],
                     "//conditions:default": [],
                 }),
                 visibility = ["//visibility:public"],
