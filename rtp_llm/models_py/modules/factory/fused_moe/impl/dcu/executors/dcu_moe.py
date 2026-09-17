@@ -153,6 +153,6 @@ class DcuExpertsBf16(FusedMoeExpertExecutor):
             topk_weights=topk_weights,
             topk_ids=topk_ids,
             global_num_experts=self.num_experts,
-            odtype=hidden_states.dtype
+            output_dtype=hidden_states.dtype
         )
         return CombineForwardPayload(fused_expert_output=output)
