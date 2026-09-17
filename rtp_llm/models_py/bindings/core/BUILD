@@ -348,6 +348,7 @@ cc_library(
             "//rtp_llm/models_py/bindings/cuda:cuda_host_utils",
             "//rtp_llm/models_py/bindings/cuda/kernels/sampling:sampling",
             "//rtp_llm/models_py/bindings/cuda/kernels:kernels_speculative_sampling",
+        ],
         "@//:using_dcu": [
             "//rtp_llm/models_py/bindings/rocm/kernels/sampling:sampling",
             "//rtp_llm/models_py/bindings/dcu:speculative_sampling",
