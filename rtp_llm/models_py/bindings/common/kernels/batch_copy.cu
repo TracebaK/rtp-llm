@@ -37,7 +37,7 @@ static inline int getMultiProcessorCount() {
 
 #if USING_CUDA
 static constexpr size_t WARP_SIZE = 32;
-#elif USING_ROCM
+#elif USING_ROCM || USING_DCU
 static constexpr size_t WARP_SIZE = 64;
 #endif
 
@@ -248,7 +248,7 @@ void invokeBatchCopy(void* const*           dst,
         const int grid_size = batch_size;
 #if USING_CUDA
         constexpr int block_size = 512;
-#elif USING_ROCM
+#elif USING_ROCM || USING_DCU
         constexpr int block_size = 1024;
 #endif
 

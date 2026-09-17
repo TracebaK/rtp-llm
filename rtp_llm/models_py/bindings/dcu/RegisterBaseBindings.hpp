@@ -1,4 +1,3 @@
-#include "rtp_llm/models_py/bindings/common/WriteCacheStoreOp.h"
 #include "rtp_llm/models_py/bindings/dcu/Gemm.h"
 #include "rtp_llm/models_py/bindings/common/CudaGraphPrefillCopy.h"
 #include "rtp_llm/models_py/bindings/common/RtpEmbeddingLookup.h"
@@ -6,15 +5,6 @@
 namespace rtp_llm {
 
 void registerBasicDcuOps(py::module& rtp_ops_m) {
-    rtp_ops_m.def("write_cache_store",
-                  &WriteCacheStoreOp,
-                  "WriteCacheStoreOp kernel",
-                  py::arg("input_lengths"),
-                  py::arg("prefix_lengths"),
-                  py::arg("kv_cache_block_id_host"),
-                  py::arg("cache_store_member"),
-                  py::arg("kv_cache"));
-
     rtp_ops_m.def("gemm", &gemm, "Gemm kernel", py::arg("output"), py::arg("input"), py::arg("weight"));
 
     rtp_ops_m.def("embedding", 

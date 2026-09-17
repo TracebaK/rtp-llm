@@ -42,7 +42,7 @@ cc_library(
 cc_library(
     name = "rocm",
     deps = [
-        ":dcju_host_utils",
+        ":dcu_host_utils",
     ],
     copts = rocm_copts(),
     include_prefix = "src",
@@ -52,13 +52,11 @@ cc_library(
 cc_library(
     name = "speculative_sampling",
     srcs = [
-        "speculative_sampling/sampling_ops.cu",
-        "speculative_sampling/sampling.cu"
+        "speculative_sampling/sampling.cu",
     ],
     hdrs = [
-        "speculative_sampling/sampling.cuh",
         "speculative_sampling/utils.cuh",
-        "speculative_sampling/vec_dtypes.cuh"
+        "speculative_sampling/vec_dtypes.cuh",
     ],
     deps = torch_deps(),
     copts = rocm_copts() + ["-DHIP_ENABLE_WARP_SYNC_BUILTINS=1"],

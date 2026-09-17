@@ -59,7 +59,7 @@ using GraphStreamGuard = at::cuda::CUDAStreamGuard;
 #endif
 
 inline GraphStream toGraphStream(const torch::Stream& stream) {
-#if USING_ROCM
+#if USING_ROCM || USING_DCU
     return at::hip::HIPStream(stream);
 #else
     return at::cuda::CUDAStream(stream);
@@ -67,7 +67,7 @@ inline GraphStream toGraphStream(const torch::Stream& stream) {
 }
 
 inline void setDevice(int rank) {
-#if USING_ROCM
+#if USING_ROCM || USING_DCU
     auto result = hipSetDevice(rank);
     RTP_LLM_CHECK_WITH_INFO(result == hipSuccess, "hipSetDevice(%d) failed: %s", rank, hipGetErrorString(result));
     at::hip::set_device(rank);
