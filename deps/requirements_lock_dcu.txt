@@ -6,8 +6,8 @@
 #
 --find-links /home/wheels
 
-aiter==0.1.3+das.opt1.dtk2604.torch290.2605211823.gccde69 \
-    --hash=sha256:06ee302551e6a750e0a39f44d6a7f82f2d66829be70f70ca182fdea4e5652808
+aiter==0.1.5+das185.dtk2604.torch2100.2608131714.gb0979d \
+    --hash=sha256:d987dc69ae435e358b8fdc0d5f805df945f19c0c3795dd3ebc9361903ba9a654
     # via -r requirements_dcu.txt
 
 aiohappyeyeballs==2.6.1 \
@@ -626,8 +626,8 @@ filelock==3.29.0 \
     #   huggingface-hub
     #   torch
     #   transformers
-flash-attn @ https://download.sourcefind.cn:65024/file/4/flash_attn/DAS1.8/flash_attn-2.8.3+das.opt1.dtk2604.torch290-cp310-cp310-manylinux_2_28_x86_64.whl \
-    --hash=sha256:c25e9f6df41b1a13013c273a363943c991ef9e58488ad725f2e4f91a1f123d8a
+flash-attn==2.8.3+das.opt1.dtk2604.torch2100.2606192019.gca46e7 \
+    --hash=sha256:1fcabaf4827a3bdc89c2c8d7631b9f15637df0135a786981eada35bdf88369f5
     # via -r requirements_dcu.txt
 fonttools==4.62.1 \
     --hash=sha256:0aa72c43a601cfa9273bb1ae0518f1acadc01ee181a6fc60cd758d7fdadffc04 \
@@ -1248,8 +1248,8 @@ librosa==0.11.0 \
     --hash=sha256:0b6415c4fd68bff4c29288abe67c6d80b587e0e1e2cfb0aad23e4559504a7fa1 \
     --hash=sha256:f5ed951ca189b375bbe2e33b2abd7e040ceeee302b9bbaeeffdfddb8d0ace908
     # via -r requirements_base.txt
-lightop @ https://download.sourcefind.cn:65024/file/4/lightop/DAS1.8/lightop-0.7.0+das.dtk2604.torch290-cp310-cp310-manylinux_2_28_x86_64.whl \
-    --hash=sha256:3dca626b59ff1d16e28882576c24bd4dd1b5dcb011df05ad68c70ef8c91ae954
+lightop==0.6.0+das.dtk2604.torch2100.2606182021.gb84052 \
+    --hash=sha256:e6f57d7a18386c6686fc7769053b05bba6f3e321ad4f87be0c3c13764fc49619
     # via -r requirements_dcu.txt
 llvmlite==0.47.0 \
     --hash=sha256:003bcf7fa579e14db59c1a1e113f93ab8a06b56a4be31c7f08264d1d4072d077 \
@@ -3464,8 +3464,8 @@ tokenizers==0.22.2 \
     --hash=sha256:e10bf9113d209be7cd046d40fbabbaf3278ff6d18eb4da4c500443185dc1896c \
     --hash=sha256:f01a9c019878532f98927d2bacb79bbb404b43d3437455522a00a30718cdedb5
     # via transformers
-torch @ https://download.sourcefind.cn:65024/file/4/pytorch/DAS1.8/torch-2.9.0+das.opt1.dtk2604-cp310-cp310-manylinux_2_28_x86_64.whl \
-    --hash=sha256:ab1429f48af5e01a3044c138f2d39f6b10b49330cb7fd7d130c9cb29131a3864
+torch==2.10.0+das.opt1.dtk2604.2606161421.g91a580 \
+    --hash=sha256:044a3e89a43aa38934fc6cd89a6b0d15ace28531f44d5a4919286f321ccae370
     # via
     #   -r requirements_dcu.txt
     #   bitsandbytes
@@ -3475,8 +3475,8 @@ torch @ https://download.sourcefind.cn:65024/file/4/pytorch/DAS1.8/torch-2.9.0+d
     #   timm
     #   torchvision
     #   triton
-torchvision @ https://download.sourcefind.cn:65024/file/4/vision/DAS1.8/torchvision-0.24.0+das.opt1.dtk2604.torch290-cp310-cp310-manylinux_2_28_x86_64.whl \
-    --hash=sha256:c3063b201b34b7486dc1e17c237a94f499cc8403455ea977fb439f7ef5355ad7
+torchvision==0.25.0+das.opt1.dtk2604.torch2100.2605071719.g7ffc50 \
+    --hash=sha256:35755dc47778e930987873c747714760421350dbc3447902ec8962c726896952
     # via
     #   -r requirements_dcu.txt
     #   timm
@@ -3494,8 +3494,8 @@ transformers==4.57.1 \
     # via
     #   -r requirements_base.txt
     #   sentence-transformers
-triton @ https://download.sourcefind.cn:65024/file/4/triton/DAS1.8/triton-3.5.1+das.opt1.dtk2604.torch290-cp310-cp310-manylinux_2_28_x86_64.whl \
-    --hash=sha256:2f459caef49f403cc42d78edc70ed353c866185b452eff6ba9640a995f72d139
+triton==3.6.0+dtk2604.torch2100.2606181426.ge87f7a \
+    --hash=sha256:3c994f00387b7eb1185a53e338e2edf6c40636614c7077d2f3eb92972b34c84b
     # via -r requirements_dcu.txt
 typing-extensions==4.15.0 \
     --hash=sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466 \

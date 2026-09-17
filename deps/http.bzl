@@ -76,9 +76,9 @@ def http_deps():
 
     http_archive(
         name = "torch_dcu",
-        sha256 = "ab1429f48af5e01a3044c138f2d39f6b10b49330cb7fd7d130c9cb29131a3864",
+        sha256 = "044a3e89a43aa38934fc6cd89a6b0d15ace28531f44d5a4919286f321ccae370",
 	urls = [
-            "https://download.sourcefind.cn:65024/file/4/pytorch/DAS1.8/torch-2.9.0+das.opt1.dtk2604-cp310-cp310-manylinux_2_28_x86_64.whl",
+            "file:///home/bazel_mirrors/torch-2.10.0+das.opt1.dtk2604.2606161421.g91a580-cp310-cp310-manylinux_2_28_x86_64.whl",
         ],
         type = "zip",
         build_file = clean_dep("@rtp_llm//:BUILD.pytorch"),

@@ -39,3 +39,7 @@ def is_hip() -> bool:
 
 def is_ppu() -> bool:
     return get_device_type() == DeviceType.Ppu
+
+
+def is_dcu() -> bool:
+    return get_device_type() == DeviceType.Dcu
