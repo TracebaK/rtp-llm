@@ -128,11 +128,10 @@ http_archive(
 )
 
 http_archive(
-    name = "zlib",
-    build_file = "@io_opentelemetry_cpp//bazel:zlib.BUILD",
-    sha256 = "d14c38e313afc35a9a8760dadf26042f51ea0f5d154b0630a31da0540107fb98",
-    strip_prefix = "zlib-1.2.13",
-    urls = ["file:///home/bazel_mirrors/zlib-d14c38e3.tar.xz"],
+    name = "rules_proto",
+    sha256 = "8e7d59a5b12b233be5652e3d29f42fba01c7cbab09f6b3a8d0a57ed6d1e9a0da",
+    strip_prefix = "rules_proto-7e4afce6fe62dbff0a4a03450143146f9f2d7488",
+    urls = ["file:///home/bazel_mirrors/rules_proto-7e4afce6.tar.gz"],
 )
 
 load("@io_opentelemetry_cpp//bazel:repository.bzl", "opentelemetry_cpp_deps")
