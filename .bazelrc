@@ -1,4 +1,5 @@
-common --experimental_downloader_config=bazel/bazel_downloader.cfg
+# DISABLED: OSS mirror returns 403 for external access
+# common --experimental_downloader_config=bazel/bazel_downloader.cfg
 fetch:downloader --experimental_remote_downloader=grpc://com.taobao.search.bazel.server:9092 --remote_cache=grpc://com.taobao.search.bazel.server:9092
 
 

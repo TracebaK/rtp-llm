@@ -2,7 +2,10 @@ load("@rules_python//python:pip.bzl", "pip_parse")
 
 PIP_EXTRA_ARGS = [
     "--cache-dir=~/.cache/pip",
-    "--extra-index-url=https://mirrors.aliyun.com/pypi/simple/",
+    "--index-url=https://mirrors.aliyun.com/pypi/simple/",
+    "--extra-index-url=https://pypi.tuna.tsinghua.edu.cn/simple/",
+    "--find-links=/home/wheels",
+    "--timeout=30",
     "--verbose",
 ]
 
