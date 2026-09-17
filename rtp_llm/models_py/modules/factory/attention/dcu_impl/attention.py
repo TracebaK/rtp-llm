@@ -172,8 +172,8 @@ class DcuPrefillAttnOp:
             # the forward path's `[0]` group-index still works.
             fallback = getattr(attn_inputs, "kv_cache_kernel_block_id_device", None)
             if fallback is not None and fallback.numel() > 0:
-                if fallback.dim() == 2:
-                    fallback = fallback.unsqueeze(0)
+                if fallback.dim() == 3:
+                    fallback = fallback[0]
                 fmha_params.kv_cache_block_id_device = fallback
             else:
                 fmha_params.kv_cache_block_id_device = None
@@ -209,7 +209,11 @@ class DcuPrefillAttnOp:
             causal=True,
             alibi_slopes=None,
             window_size=(-1, -1),
-            block_table=fmha_params.kv_cache_block_id_device[0],
+            block_table=(
+                fmha_params.kv_cache_block_id_device[0]
+                if fmha_params.kv_cache_block_id_device.dim() == 3
+                else fmha_params.kv_cache_block_id_device
+            ),
             softcap=0,
             scheduler_metadata=None,
             is_prefix_cache=True,
@@ -259,8 +263,8 @@ class DcuDecodeAttnOp:
             # path's `[0]` group-index still works.
             fallback = getattr(attn_inputs, "kv_cache_kernel_block_id_device", None)
             if fallback is not None and fallback.numel() > 0:
-                if fallback.dim() == 2:
-                    fallback = fallback.unsqueeze(0)
+                if fallback.dim() == 3:
+                    fallback = fallback[0]
                 fmha_params.kv_cache_block_id_device = fallback
             else:
                 fmha_params.kv_cache_block_id_device = None
@@ -301,7 +305,11 @@ class DcuDecodeAttnOp:
             causal=True,
             alibi_slopes=None,
             window_size=(-1, -1),
-            block_table=fmha_params.kv_cache_block_id_device[0],
+            block_table=(
+                fmha_params.kv_cache_block_id_device[0]
+                if fmha_params.kv_cache_block_id_device.dim() == 3
+                else fmha_params.kv_cache_block_id_device
+            ),
             softcap=0,
             scheduler_metadata=None,
             is_prefix_cache=True,

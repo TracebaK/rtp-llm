@@ -442,6 +442,9 @@ build:dcu --copt="-Wno-deprecated-builtins"
 build:dcu --copt="-D_GLIBCXX_USE_CXX11_ABI=1"
 build:dcu --action_env LD_LIBRARY_PATH="/lib64:/usr/lib/x86_64-linux-gnu/:/opt/dtk/lib/:$LD_LIBRARY_PATH"
 build:dcu --host_action_env LD_LIBRARY_PATH="/opt/dtk/lib/:$LD_LIBRARY_PATH"
+# Pin the OTel STL mode for DCU, same rationale as the rocm config above:
+# keep hipcc-built TUs on the same (std) ABI as the gcc-built OTel SDK archive.
+build:dcu --@io_opentelemetry_cpp//api:with_cxx_stdlib=2017
 build:dcu --copt="-DUSE_ROCM=1"
 build:dcu --copt="-DFORCE_NVSHMEM_API=1"
 

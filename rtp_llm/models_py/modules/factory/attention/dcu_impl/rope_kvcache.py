@@ -93,7 +93,12 @@ class FusedRopeKVCachePrefillOp:
             torch.arange(len(attn_inputs.input_lengths)), 
             attn_inputs.input_lengths,
         )
-        physical_block_ids = kv_cache_block_id_host[0][seq_ids, block_indices]
+        # kv_cache_block_id is [batch, blocks] on current main; keep the legacy
+        # grouped [1, batch, blocks] indexing as a fallback.
+        if kv_cache_block_id_host.dim() == 3:
+            physical_block_ids = kv_cache_block_id_host[0][seq_ids, block_indices]
+        else:
+            physical_block_ids = kv_cache_block_id_host[seq_ids, block_indices]
         block_offsets = positions % block_size
         slot_mapping = physical_block_ids * block_size + block_offsets
 
@@ -192,7 +197,12 @@ class FusedRopeKVCacheDecodeOp:
             torch.arange(len(attn_inputs.input_lengths)),
             1,
         )
-        physical_block_ids = kv_cache_block_id_host[0][seq_ids, block_indices]
+        # kv_cache_block_id is [batch, blocks] on current main; keep the legacy
+        # grouped [1, batch, blocks] indexing as a fallback.
+        if kv_cache_block_id_host.dim() == 3:
+            physical_block_ids = kv_cache_block_id_host[0][seq_ids, block_indices]
+        else:
+            physical_block_ids = kv_cache_block_id_host[seq_ids, block_indices]
         block_offsets = positions % block_size
         slot_mapping = physical_block_ids * block_size + block_offsets
         return positions, slot_mapping
